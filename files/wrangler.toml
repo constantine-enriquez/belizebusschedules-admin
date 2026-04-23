@@ -1,0 +1,13 @@
+# Optional: local `wrangler pages dev .` / CI.
+# In Cloudflare Dashboard → your Pages project → Settings → Functions:
+# bind D1 with binding name **DB** (must match env.DB in code).
+# Replace database_id with your D1 UUID from Workers & Pages → D1.
+
+name = "bus-admin-pages"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "REPLACE_ME"
+database_id = "00000000-0000-0000-0000-000000000000"
