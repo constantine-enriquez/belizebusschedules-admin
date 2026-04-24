@@ -716,8 +716,8 @@
 
   function renderStats() {
     document.getElementById('stat-total').textContent     = users.length
-    document.getElementById('stat-drivers').textContent   = users.filter(u => u.user_type === 'driver').length
-    document.getElementById('stat-conductors').textContent = users.filter(u => u.user_type === 'conductor').length
+    document.getElementById('stat-drivers').textContent   = users.filter(u => u.user_type === 'Driver').length
+    document.getElementById('stat-conductors').textContent = users.filter(u => u.user_type === 'Conductor').length
     document.getElementById('user-count').textContent     = `(${users.length})`
   }
 
