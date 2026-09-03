@@ -1,10 +1,24 @@
 import {
-  adminUserIdFromCreateResponse,
   buildCorsHeaders,
   jsonResponse,
   requireAccess,
-  supabaseErrorMessage,
 } from '../../lib/adminHelpers.js'
+
+function driverApiBase(env) {
+  const raw = (env.DRIVER_API_BASE_URL || '').trim().replace(/\/+$/, '')
+  if (!raw) {
+    throw new Error('DRIVER_API_BASE_URL is not configured on Pages')
+  }
+  return raw
+}
+
+function adminSecret(env) {
+  const s = (env.ADMIN_API_SECRET || '').trim()
+  if (!s) {
+    throw new Error('ADMIN_API_SECRET is not configured on Pages')
+  }
+  return s
+}
 
 export async function onRequestOptions({ request, env }) {
   const cors = buildCorsHeaders(request, env)
@@ -39,47 +53,37 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Email and password required' }, 400, cors)
     }
 
-    const authRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+    const base = driverApiBase(env)
+    const secret = adminSecret(env)
+    const authRes = await fetch(`${base}/api/internal/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: env.SUPABASE_SERVICE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        'X-Admin-Secret': secret,
       },
       body: JSON.stringify({
         email,
         password,
-        email_confirm: true,
-        app_metadata: { user_type: user_type || null },
+        display_name,
+        user_type,
+        bus_company,
       }),
     })
 
-    const authData = await authRes.json()
+    const authData = await authRes.json().catch(() => ({}))
     if (!authRes.ok) {
-      return jsonResponse({ error: supabaseErrorMessage(authData) }, 400, cors)
-    }
-
-    const userId = adminUserIdFromCreateResponse(authData)
-    if (!userId) {
-      return jsonResponse({ error: 'Supabase returned no user id' }, 500, cors)
-    }
-
-    await env.DB.prepare(
-      `
-      INSERT INTO profiles (id, email, display_name, user_type, bus_company)
-      VALUES (?, ?, ?, ?, ?)
-    `
-    )
-      .bind(
-        userId,
-        email,
-        display_name || null,
-        user_type || null,
-        bus_company || null
+      return jsonResponse(
+        { error: authData.error || authData.message || 'Failed to create user' },
+        authRes.status >= 400 ? authRes.status : 400,
+        cors
       )
-      .run()
+    }
 
-    return jsonResponse({ success: true, id: userId }, 200, cors)
+    return jsonResponse(
+      { success: true, id: authData.id || null },
+      200,
+      cors
+    )
   } catch (e) {
     return jsonResponse({ error: e.message }, 500, cors)
   }

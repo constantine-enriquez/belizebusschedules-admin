@@ -2,8 +2,23 @@ import {
   buildCorsHeaders,
   jsonResponse,
   requireAccess,
-  supabaseErrorMessage,
 } from '../../../lib/adminHelpers.js'
+
+function driverApiBase(env) {
+  const raw = (env.DRIVER_API_BASE_URL || '').trim().replace(/\/+$/, '')
+  if (!raw) {
+    throw new Error('DRIVER_API_BASE_URL is not configured on Pages')
+  }
+  return raw
+}
+
+function adminSecret(env) {
+  const s = (env.ADMIN_API_SECRET || '').trim()
+  if (!s) {
+    throw new Error('ADMIN_API_SECRET is not configured on Pages')
+  }
+  return s
+}
 
 export async function onRequestOptions({ request, env }) {
   const cors = buildCorsHeaders(request, env)
@@ -26,32 +41,24 @@ export async function onRequestPatch(context) {
   try {
     const { display_name, user_type, bus_company } = await request.json()
 
-    await env.DB.prepare(
-      `
-      UPDATE profiles
-      SET display_name = ?, user_type = ?, bus_company = ?
-      WHERE id = ?
-    `
-    )
-      .bind(
-        display_name || null,
-        user_type || null,
-        bus_company || null,
-        userId
-      )
-      .run()
-
-    await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-      method: 'PUT',
+    const base = driverApiBase(env)
+    const secret = adminSecret(env)
+    const res = await fetch(`${base}/api/internal/users/${userId}`, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        apikey: env.SUPABASE_SERVICE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        'X-Admin-Secret': secret,
       },
-      body: JSON.stringify({
-        app_metadata: { user_type: user_type || null },
-      }),
+      body: JSON.stringify({ display_name, user_type, bus_company }),
     })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      return jsonResponse(
+        { error: data.error || data.message || 'Update failed' },
+        res.status >= 400 ? res.status : 400,
+        cors
+      )
+    }
 
     return jsonResponse({ success: true }, 200, cors)
   } catch (e) {
@@ -73,25 +80,23 @@ export async function onRequestDelete(context) {
   }
 
   try {
-    const authRes = await fetch(
-      `${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          apikey: env.SUPABASE_SERVICE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-        },
-      }
-    )
+    const base = driverApiBase(env)
+    const secret = adminSecret(env)
+    const authRes = await fetch(`${base}/api/internal/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'X-Admin-Secret': secret,
+      },
+    })
 
+    const errBody = await authRes.json().catch(() => ({}))
     if (!authRes.ok) {
-      const err = await authRes.json()
-      return jsonResponse({ error: supabaseErrorMessage(err) }, 400, cors)
+      return jsonResponse(
+        { error: errBody.error || errBody.message || 'Delete failed' },
+        authRes.status >= 400 ? authRes.status : 400,
+        cors
+      )
     }
-
-    await env.DB.prepare('DELETE FROM profiles WHERE id = ?')
-      .bind(userId)
-      .run()
 
     return jsonResponse({ success: true }, 200, cors)
   } catch (e) {

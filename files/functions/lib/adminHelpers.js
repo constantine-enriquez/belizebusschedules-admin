@@ -1,9 +1,12 @@
 /**
  * Shared helpers for Pages admin API routes.
  * Env (Cloudflare Pages → Settings):
- *   Variables: SUPABASE_URL, SUPABASE_SERVICE_KEY
+ *   Variables: DRIVER_API_BASE_URL, ADMIN_API_SECRET
  *   Optional: CORS_ORIGINS (comma-separated), IMAGES_PUBLIC_BASE (e.g. https://images.belizebusschedules.com, no trailing slash)
  *   Functions → R2: bind bucket as BUS_IMAGES (bus photos; keys like {company-slug}/{vehicle-id}.jpg)
+ *
+ * Driver users are created/deleted via the driver Worker Better Auth endpoints
+ * (see cloudflare-worker/AUTH_SETUP.md). Cloudflare Access still protects this admin UI.
  */
 
 export const CF_ACCESS_TEAM_DOMAIN = 'belizebusschedules.cloudflareaccess.com'
