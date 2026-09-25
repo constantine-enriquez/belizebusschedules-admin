@@ -675,6 +675,19 @@
   }
   .cta-row .field { flex: 1; min-width: 100px; }
 
+  .vehicle-features-list { display: flex; flex-direction: column; gap: 8px; }
+  .vehicle-feature-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .vehicle-feature-row select { flex: 1; }
+  .vehicle-features-empty {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px 0;
+  }
+
   /* Passenger-matched previews */
   .ad-avatar {
     width: 40px; height: 40px; border-radius: 10px;
@@ -1157,7 +1170,11 @@
       <select id="vc-status"><option value="active">Active</option><option value="inactive">Inactive</option></select>
     </div>
     <div class="field"><label>Notes</label><input id="vc-notes" type="text" placeholder="Optional"></div>
-    <div class="field"><label>Features (JSON)</label><input id="vc-features" type="text" value="{}"></div>
+    <div class="field">
+      <label>Features <span style="font-weight:500;color:var(--muted)">(up to 5)</span></label>
+      <div id="vc-features-list" class="vehicle-features-list"></div>
+      <button type="button" class="btn btn-ghost" id="vc-features-add" onclick="addVehicleFeature('create')" style="margin-top:8px;">Add feature</button>
+    </div>
     <div class="field">
       <label>Bus photo</label>
       <input id="vc-photo" type="file" accept="image/jpeg,image/png,image/webp">
@@ -1188,7 +1205,11 @@
       <select id="ve-status"><option value="active">Active</option><option value="inactive">Inactive</option></select>
     </div>
     <div class="field"><label>Notes</label><input id="ve-notes" type="text"></div>
-    <div class="field"><label>Features (JSON)</label><input id="ve-features" type="text"></div>
+    <div class="field">
+      <label>Features <span style="font-weight:500;color:var(--muted)">(up to 5)</span></label>
+      <div id="ve-features-list" class="vehicle-features-list"></div>
+      <button type="button" class="btn btn-ghost" id="ve-features-add" onclick="addVehicleFeature('edit')" style="margin-top:8px;">Add feature</button>
+    </div>
     <div class="divider">Photo</div>
     <div id="ve-photo-preview-wrap" class="photo-preview-wrap" style="display:none;">
       <img id="ve-photo-preview" alt="Current bus photo">
@@ -1429,6 +1450,132 @@
   let users = []
   let vehicles = []
   let sessions = []
+
+  /** Matches passenger tracking amenity keys (`features` JSON: { key: true }). */
+  const VEHICLE_FEATURE_OPTIONS = [
+    { value: 'air_conditioning', label: 'Air conditioning' },
+    { value: 'wifi', label: 'Wi‑Fi' },
+    { value: 'usb_charging', label: 'USB charging' },
+    { value: 'reclining_seats', label: 'Reclining seats' },
+    { value: 'luggage_storage', label: 'Luggage storage' },
+    { value: 'toilet', label: 'Toilet / restroom' },
+    { value: 'entertainment', label: 'Entertainment / TV' },
+  ]
+  const MAX_VEHICLE_FEATURES = 5
+  let vcFeatures = []
+  let veFeatures = []
+
+  function humanizeFeatureKey(key) {
+    return String(key || '')
+      .replaceAll('_', ' ')
+      .split(' ')
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+      .join(' ')
+  }
+
+  function parseVehicleFeatures(raw) {
+    let obj = raw
+    if (typeof raw === 'string') {
+      try {
+        obj = JSON.parse(raw || '{}')
+      } catch {
+        return []
+      }
+    }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return []
+    const keys = []
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === true || value === 'true' || value === 1) keys.push(key)
+      else if (typeof value === 'string' && value && value !== 'false') keys.push(key)
+    }
+    return keys.slice(0, MAX_VEHICLE_FEATURES)
+  }
+
+  function serializeVehicleFeatures(keys) {
+    const out = {}
+    for (const key of keys) {
+      if (key) out[key] = true
+    }
+    return JSON.stringify(out)
+  }
+
+  function featureOptionList(selectedKeys, currentValue) {
+    const taken = new Set(selectedKeys.filter((k) => k && k !== currentValue))
+    const known = new Map(VEHICLE_FEATURE_OPTIONS.map((o) => [o.value, o.label]))
+    if (currentValue && !known.has(currentValue)) {
+      known.set(currentValue, humanizeFeatureKey(currentValue))
+    }
+    const opts = ['<option value="">— select feature —</option>']
+    for (const [value, label] of known) {
+      if (taken.has(value)) continue
+      opts.push(
+        `<option value="${escAttr(value)}"${value === currentValue ? ' selected' : ''}>${escHtml(label)}</option>`
+      )
+    }
+    return opts.join('')
+  }
+
+  function renderVehicleFeatures(mode) {
+    const isCreate = mode === 'create'
+    const keys = isCreate ? vcFeatures : veFeatures
+    const listId = isCreate ? 'vc-features-list' : 've-features-list'
+    const addId = isCreate ? 'vc-features-add' : 've-features-add'
+    const wrap = document.getElementById(listId)
+    const addBtn = document.getElementById(addId)
+    if (!wrap) return
+
+    if (!keys.length) {
+      wrap.innerHTML =
+        '<div class="vehicle-features-empty">No features yet — optional amenities shown on passenger tracking.</div>'
+    } else {
+      wrap.innerHTML = keys
+        .map(
+          (key, i) => `<div class="vehicle-feature-row">
+          <select aria-label="Feature ${i + 1}" onchange="onVehicleFeatureChange('${isCreate ? 'create' : 'edit'}',${i},this.value)">
+            ${featureOptionList(keys, key)}
+          </select>
+          <button type="button" class="btn btn-ghost" style="padding:8px 10px" aria-label="Remove feature" onclick="removeVehicleFeature('${isCreate ? 'create' : 'edit'}',${i})">Remove</button>
+        </div>`
+        )
+        .join('')
+    }
+    if (addBtn) {
+      addBtn.style.display = keys.length < MAX_VEHICLE_FEATURES ? '' : 'none'
+    }
+  }
+
+  window.addVehicleFeature = function addVehicleFeature(mode) {
+    const keys = mode === 'create' ? vcFeatures : veFeatures
+    if (keys.length >= MAX_VEHICLE_FEATURES) return
+    keys.push('')
+    renderVehicleFeatures(mode)
+  }
+
+  window.removeVehicleFeature = function removeVehicleFeature(mode, index) {
+    const keys = mode === 'create' ? vcFeatures : veFeatures
+    keys.splice(index, 1)
+    renderVehicleFeatures(mode)
+  }
+
+  window.onVehicleFeatureChange = function onVehicleFeatureChange(mode, index, value) {
+    const keys = mode === 'create' ? vcFeatures : veFeatures
+    if (index < 0 || index >= keys.length) return
+    keys[index] = value
+    renderVehicleFeatures(mode)
+  }
+
+  function setVehicleFeatures(mode, raw) {
+    const parsed = parseVehicleFeatures(raw)
+    if (mode === 'create') vcFeatures = parsed
+    else veFeatures = parsed
+    renderVehicleFeatures(mode)
+  }
+
+  function collectVehicleFeaturesJson(mode) {
+    const keys = (mode === 'create' ? vcFeatures : veFeatures).filter(Boolean)
+    const unique = [...new Set(keys)].slice(0, MAX_VEHICLE_FEATURES)
+    return serializeVehicleFeatures(unique)
+  }
 
   async function loadCompanies() {
     try {
@@ -1794,7 +1941,7 @@
     document.getElementById('vc-plate').value = ''
     document.getElementById('vc-vin').value = ''
     document.getElementById('vc-notes').value = ''
-    document.getElementById('vc-features').value = '{}'
+    setVehicleFeatures('create', {})
     document.getElementById('vc-status').value = 'active'
     document.getElementById('vc-company').value = ''
     const ph = document.getElementById('vc-photo')
@@ -1808,12 +1955,7 @@
     const vin = document.getElementById('vc-vin').value.trim()
     const status = document.getElementById('vc-status').value
     const notes = document.getElementById('vc-notes').value.trim()
-    let features = document.getElementById('vc-features').value.trim() || '{}'
-    try {
-      JSON.parse(features)
-    } catch {
-      return toast('Features must be valid JSON', 'err')
-    }
+    const features = collectVehicleFeaturesJson('create')
     if (!company_name || !plate) return toast('Company and plate are required', 'err')
     try {
       const res = await apiFetch(`${API_BASE}/vehicles`, {
@@ -1855,7 +1997,7 @@
     document.getElementById('ve-status').value =
       String(v.status || '').toLowerCase() === 'inactive' ? 'inactive' : 'active'
     document.getElementById('ve-notes').value = v.notes || ''
-    document.getElementById('ve-features').value = v.features || '{}'
+    setVehicleFeatures('edit', v.features || '{}')
     const ph = document.getElementById('ve-photo')
     if (ph) ph.value = ''
     const wrap = document.getElementById('ve-photo-preview-wrap')
@@ -1877,12 +2019,7 @@
     const vin = document.getElementById('ve-vin').value.trim()
     const status = document.getElementById('ve-status').value
     const notes = document.getElementById('ve-notes').value.trim()
-    let features = document.getElementById('ve-features').value.trim() || '{}'
-    try {
-      JSON.parse(features)
-    } catch {
-      return toast('Features must be valid JSON', 'err')
-    }
+    const features = collectVehicleFeaturesJson('edit')
     if (!company_name || !plate) return toast('Company and plate are required', 'err')
     try {
       const res = await apiFetch(`${API_BASE}/vehicles/${encodeURIComponent(id)}`, {
