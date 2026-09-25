@@ -773,7 +773,7 @@
     font-size: 1.25rem; font-weight: 750; letter-spacing: 0.08em; color: var(--brand-dark);
   }
   .pv-discount-valid { margin: 0; font-size: 0.78rem; font-weight: 600; color: #4b5c54; }
-  .pv-copy {
+  .pv-copy-btn {
     border: 0; border-radius: 8px; padding: 0.4rem 0.7rem;
     background: var(--brand); color: #fff; font-size: 0.76rem; font-weight: 700; cursor: pointer;
   }
@@ -1396,7 +1396,7 @@
 
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModals()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveAd()">Save ad</button>
+      <button class="btn btn-primary" id="ad-save-btn" onclick="saveAd()">Save strip ad</button>
     </div>
   </div>
 </div>
@@ -2018,11 +2018,9 @@
     document.querySelectorAll('.overlay').forEach(el => el.classList.remove('open'))
   }
 
-  /** End Cloudflare Access session and return to this admin origin. */
+  /** End Cloudflare Access session on this hostname (avoids silent IdP re-login). */
   function logoutAdmin() {
-    const team = 'belizebusschedules.cloudflareaccess.com'
-    const returnTo = encodeURIComponent(window.location.origin + '/')
-    window.location.href = `https://${team}/cdn-cgi/access/logout?returnTo=${returnTo}`
+    window.location.href = `${window.location.origin}/cdn-cgi/access/logout`
   }
 
   document.querySelectorAll('.overlay').forEach(el =>

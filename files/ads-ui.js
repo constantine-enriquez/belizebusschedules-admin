@@ -340,10 +340,18 @@
   }
 
   function syncPlacementControls(placement) {
+    const isEditing = !!document.getElementById('ad-editor-id')?.value
+    const switchEl = document.querySelector('.ad-placement-switch')
+    if (switchEl) {
+      switchEl.classList.toggle('is-locked', isEditing)
+      switchEl.title = isEditing
+        ? 'Placement is fixed for existing ads. Create a new ad to use the other format.'
+        : ''
+    }
     document.querySelectorAll('[data-ad-placement]').forEach((button) => {
       button.classList.toggle('active', button.dataset.adPlacement === placement)
+      button.disabled = isEditing && button.dataset.adPlacement !== placement
     })
-    const isEditing = !!document.getElementById('ad-editor-id')?.value
     document.getElementById('ad-editor-title-text').textContent =
       `${isEditing ? 'Edit' : 'New'} ${placement} ad`
     document.getElementById('ad-editor-desc').textContent =
@@ -369,12 +377,19 @@
     if (actionsHelp) {
       actionsHelp.textContent =
         placement === 'strip'
-          ? 'Strip ads get exactly one action (WhatsApp, call, etc.).'
-          : 'Card ads can have 1–3 actions. Keep labels short.'
+          ? 'Strip ads get exactly one text action (no primary/secondary styles).'
+          : 'Card ads can have 1–3 actions with primary or secondary style.'
+    }
+    const saveBtn = document.getElementById('ad-save-btn')
+    if (saveBtn) {
+      saveBtn.textContent =
+        placement === 'strip' ? 'Save strip ad' : 'Save card ad'
     }
   }
 
   window.setAdEditorPlacement = function setAdEditorPlacement(placement) {
+    const isEditing = !!document.getElementById('ad-editor-id')?.value
+    if (isEditing) return
     document.getElementById('ad-editor-placement').value =
       placement === 'card' ? 'card' : 'strip'
     syncPlacementControls(placement)
@@ -408,6 +423,15 @@
             `<option value="${t.value}" ${cta.type === t.value ? 'selected' : ''}>${t.label}</option>`
         ).join('')
         const meta = CTA_TYPES.find((t) => t.value === cta.type) || CTA_TYPES[0]
+        const styleField =
+          placement === 'card'
+            ? `<div class="field" style="margin:0"><label>Style</label>
+          <select onchange="onCtaField(${i},'style',this.value)">
+            <option value="primary" ${cta.style === 'primary' ? 'selected' : ''}>Primary</option>
+            <option value="secondary" ${cta.style !== 'primary' ? 'selected' : ''}>Secondary</option>
+          </select>
+        </div>`
+            : ''
         return `<div class="cta-row" data-cta-i="${i}">
         <div class="field" style="margin:0"><label>Type</label>
           <select onchange="onCtaField(${i},'type',this.value)">${typeOpts}</select>
@@ -418,12 +442,7 @@
         <div class="field" style="margin:0;flex:1.4"><label>Href</label>
           <input type="text" value="${escAttr(cta.href)}" placeholder="${escAttr(meta.placeholder)}" oninput="onCtaField(${i},'href',this.value)">
         </div>
-        <div class="field" style="margin:0"><label>Style</label>
-          <select onchange="onCtaField(${i},'style',this.value)">
-            <option value="primary" ${cta.style === 'primary' ? 'selected' : ''}>Primary</option>
-            <option value="secondary" ${cta.style !== 'primary' ? 'selected' : ''}>Secondary</option>
-          </select>
-        </div>
+        ${styleField}
         ${
           placement === 'card'
             ? `<button type="button" class="btn btn-ghost" style="align-self:end;padding:8px" aria-label="Remove action" onclick="removeCta(${i})" ${editorCtas.length <= 1 ? 'disabled' : ''}>Remove</button>`
@@ -503,7 +522,14 @@
       discount_valid_until: discountOn
         ? document.getElementById('ad-discount-valid').value.trim()
         : '',
-      ctas: editorCtas.map((c) => ({ ...c })),
+      ctas: editorCtas.map((c) => {
+        const next = { ...c }
+        if (placement === 'strip') {
+          // Strip CTAs are a single text link — no primary/secondary styles.
+          delete next.style
+        }
+        return next
+      }),
     }
   }
 
@@ -559,7 +585,7 @@
           <div class="pv-code-row"><span class="pv-code-label">Discount code</span><span class="pv-code-value">${escHtml(ad.discount_code || 'CODE')}</span></div>
           ${valid}
           <div class="pv-discount-actions">
-            <button type="button" class="pv-copy" onclick="togglePreviewDiscount()">Hide</button>
+            <button type="button" class="pv-copy-btn" onclick="togglePreviewDiscount()">Hide</button>
           </div>
         </div>`
       }

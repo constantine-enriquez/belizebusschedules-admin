@@ -242,6 +242,15 @@ label { color: #557061; }
   color: var(--green-dark);
   box-shadow: 0 0 0 3px rgba(0, 75, 43, 0.08);
 }
+.placement-option:disabled,
+.ad-placement-switch.is-locked .placement-option:not(.active) {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.ad-placement-switch.is-locked .placement-option.active {
+  cursor: default;
+}
 .placement-option strong { display: block; font-size: 12px; }
 .placement-option small { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); }
 .placement-option .ui-icon { color: var(--green); }
