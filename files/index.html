@@ -626,6 +626,50 @@
   .badge-ad-paused { background: #fff3e0; color: #b45309; }
   .badge-ad-draft { background: #f0f0f0; color: #666; }
   .badge-ad-cat { background: var(--green-pale); color: var(--green-dark); text-transform: none; letter-spacing: 0; }
+  .ad-report-body { margin-top: 8px; }
+  .ad-report-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ad-report-stat {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface2);
+  }
+  .ad-report-stat .label {
+    font-size: 11px;
+    font-weight: 650;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .ad-report-stat .value {
+    margin-top: 4px;
+    font-size: 1.35rem;
+    font-weight: 750;
+    color: var(--green-dark);
+  }
+  .ad-report-meta {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .ad-report-cta-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+  }
+  .ad-report-cta-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
 
   .modal-ads { max-width: 960px; width: calc(100vw - 32px); }
   .ad-editor-grid {
@@ -1035,12 +1079,13 @@
                 <th>Title</th>
                 <th>Dates</th>
                 <th>Status</th>
-                <th>Category</th>
+                <th>Views</th>
+                <th>Clicks</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="ads-strip-body">
-              <tr><td colspan="6"><div class="empty"><div class="empty-icon"></div>Open Ads to load.</div></td></tr>
+              <tr><td colspan="7"><div class="empty"><div class="empty-icon"></div>Open Ads to load.</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -1056,12 +1101,13 @@
                 <th>Title</th>
                 <th>Dates</th>
                 <th>Status</th>
-                <th>Category</th>
+                <th>Views</th>
+                <th>Clicks</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="ads-card-body">
-              <tr><td colspan="6"><div class="empty"><div class="empty-icon"></div>Open Ads to load.</div></td></tr>
+              <tr><td colspan="7"><div class="empty"><div class="empty-icon"></div>Open Ads to load.</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -1239,6 +1285,20 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModals()">Cancel</button>
       <button class="btn btn-danger-sm" style="padding:9px 18px; font-size:13px;" onclick="deleteVehicle()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ad performance report -->
+<div class="overlay" id="ad-report-modal">
+  <div class="modal">
+    <div class="modal-icon modal-icon-green" id="adReportModalIcon"></div>
+    <div class="modal-title" id="ad-report-title">Ad report</div>
+    <div class="modal-desc" id="ad-report-desc">Performance for this sponsored placement.</div>
+    <div id="ad-report-body" class="ad-report-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModals()">Close</button>
+      <button class="btn btn-primary" type="button" onclick="copyAdReport()">Copy summary</button>
     </div>
   </div>
 </div>

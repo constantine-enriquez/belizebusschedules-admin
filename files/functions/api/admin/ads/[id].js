@@ -6,10 +6,12 @@ import {
 import {
   ensureAdsTable,
   findOverlaps,
+  pauseOverlappingAds,
   normalizeAdPayload,
   rowToAd,
   scheduleLabel,
   assertKnownRoute,
+  getAdStatsDetail,
 } from '../../../lib/adsHelpers.js'
 
 function adIdFromContext(context) {
@@ -41,8 +43,15 @@ export async function onRequestGet(context) {
       .bind(id)
       .first()
     if (!row) return jsonResponse({ error: 'Ad not found' }, 404, cors)
+    const stats = await getAdStatsDetail(env, id)
     return jsonResponse(
-      { ad: { ...rowToAd(row), schedule_label: scheduleLabel(row) } },
+      {
+        ad: {
+          ...rowToAd(row),
+          schedule_label: scheduleLabel(row),
+          stats,
+        },
+      },
       200,
       cors
     )
@@ -82,9 +91,10 @@ export async function onRequestPatch(context) {
     }
 
     const url = new URL(request.url)
-    const force = url.searchParams.get('force') === '1'
+    const pauseOverlaps = url.searchParams.get('pause_overlaps') === '1'
 
     let overlaps = []
+    let paused = []
     if (ad.status === 'active') {
       overlaps = await findOverlaps(env, {
         placement: ad.placement,
@@ -94,7 +104,7 @@ export async function onRequestPatch(context) {
         ends_at: ad.ends_at,
         excludeId: id,
       })
-      if (overlaps.length && !force) {
+      if (overlaps.length && !pauseOverlaps) {
         return jsonResponse(
           {
             error:
@@ -105,6 +115,9 @@ export async function onRequestPatch(context) {
           409,
           cors
         )
+      }
+      if (overlaps.length && pauseOverlaps) {
+        paused = await pauseOverlappingAds(env, overlaps)
       }
     }
 
@@ -151,7 +164,7 @@ export async function onRequestPatch(context) {
       {
         success: true,
         ad: { ...rowToAd(row), schedule_label: scheduleLabel(row) },
-        overlaps: overlaps.length ? overlaps : undefined,
+        paused: paused.length ? paused : undefined,
       },
       200,
       cors

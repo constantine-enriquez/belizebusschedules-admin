@@ -114,11 +114,11 @@
     const cardBody = document.getElementById('ads-card-body')
     if (stripBody) {
       stripBody.innerHTML =
-        '<tr><td colspan="6"><div class="empty"><div class="empty-icon"></div>Loading…</div></td></tr>'
+        '<tr><td colspan="7"><div class="empty"><div class="empty-icon"></div>Loading…</div></td></tr>'
     }
     if (cardBody) {
       cardBody.innerHTML =
-        '<tr><td colspan="6"><div class="empty"><div class="empty-icon"></div>Loading…</div></td></tr>'
+        '<tr><td colspan="7"><div class="empty"><div class="empty-icon"></div>Loading…</div></td></tr>'
     }
     try {
       const res = await apiFetch(`${API_BASE}/ads`)
@@ -130,7 +130,7 @@
       if (countEl) countEl.textContent = `(${ads.length})`
     } catch (e) {
       ads = []
-      const msg = `<tr><td colspan="6"><div class="empty"><div class="empty-icon"></div>${escHtml(e.message)}</div></td></tr>`
+      const msg = `<tr><td colspan="7"><div class="empty"><div class="empty-icon"></div>${escHtml(e.message)}</div></td></tr>`
       if (stripBody) stripBody.innerHTML = msg
       if (cardBody) cardBody.innerHTML = msg
     }
@@ -148,6 +148,36 @@
     return `${escHtml(a)} → ${escHtml(b)}`
   }
 
+  function adStats(ad) {
+    return (
+      ad.stats || {
+        impressions: 0,
+        clicks: 0,
+        discount_opens: 0,
+        code_copies: 0,
+        ctr: 0,
+        by_cta: {},
+      }
+    )
+  }
+
+  function adRowHtml(a) {
+    const s = adStats(a)
+    return `<tr>
+          <td style="font-weight:500">${escHtml(a.origin)} → ${escHtml(a.destination)}</td>
+          <td>${escHtml(a.title)}</td>
+          <td style="font-size:12px;color:var(--muted)">${fmtDateRange(a)}</td>
+          <td>${statusBadge(a)}</td>
+          <td style="font-variant-numeric:tabular-nums">${escHtml(String(s.impressions))}</td>
+          <td style="font-variant-numeric:tabular-nums">${escHtml(String(s.clicks))}<span style="color:var(--muted);font-size:11px;margin-left:4px">${escHtml(String(s.ctr))}%</span></td>
+          <td><div class="td-actions">
+            <button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openAdReport('${escAttr(a.id)}')">Report</button>
+            <button class="btn btn-edit" onclick="openAdEditor('${escAttr(a.id)}')">Edit</button>
+            <button class="btn btn-danger-sm" onclick="deleteAd('${escAttr(a.id)}')">Delete</button>
+          </div></td>
+        </tr>`
+  }
+
   function renderAdsTables() {
     const strips = ads.filter((a) => a.placement === 'strip')
     const cards = ads.filter((a) => a.placement === 'card')
@@ -161,47 +191,98 @@
     if (stripBody) {
       if (!strips.length) {
         stripBody.innerHTML =
-          '<tr><td colspan="6"><div class="empty"><div class="empty-icon"></div>No strip ads yet</div></td></tr>'
+          '<tr><td colspan="7"><div class="empty"><div class="empty-icon"></div>No strip ads yet</div></td></tr>'
       } else {
-        stripBody.innerHTML = strips
-          .map(
-            (a) => `<tr>
-          <td style="font-weight:500">${escHtml(a.origin)} → ${escHtml(a.destination)}</td>
-          <td>${escHtml(a.title)}</td>
-          <td style="font-size:12px;color:var(--muted)">${fmtDateRange(a)}</td>
-          <td>${statusBadge(a)}</td>
-          <td><span class="badge badge-ad-cat">${escHtml(a.category_kind)}</span></td>
-          <td><div class="td-actions">
-            <button class="btn btn-edit" onclick="openAdEditor('${escAttr(a.id)}')">Edit</button>
-            <button class="btn btn-danger-sm" onclick="deleteAd('${escAttr(a.id)}')">Delete</button>
-          </div></td>
-        </tr>`
-          )
-          .join('')
+        stripBody.innerHTML = strips.map(adRowHtml).join('')
       }
     }
 
     if (cardBody) {
       if (!cards.length) {
         cardBody.innerHTML =
-          '<tr><td colspan="6"><div class="empty"><div class="empty-icon"></div>No card ads yet</div></td></tr>'
+          '<tr><td colspan="7"><div class="empty"><div class="empty-icon"></div>No card ads yet</div></td></tr>'
       } else {
-        cardBody.innerHTML = cards
-          .map(
-            (a) => `<tr>
-          <td style="font-weight:500">${escHtml(a.origin)} → ${escHtml(a.destination)}</td>
-          <td>${escHtml(a.title)}</td>
-          <td style="font-size:12px;color:var(--muted)">${fmtDateRange(a)}</td>
-          <td>${statusBadge(a)}</td>
-          <td><span class="badge badge-ad-cat">${escHtml(a.category_kind)}</span></td>
-          <td><div class="td-actions">
-            <button class="btn btn-edit" onclick="openAdEditor('${escAttr(a.id)}')">Edit</button>
-            <button class="btn btn-danger-sm" onclick="deleteAd('${escAttr(a.id)}')">Delete</button>
-          </div></td>
-        </tr>`
-          )
-          .join('')
+        cardBody.innerHTML = cards.map(adRowHtml).join('')
       }
+    }
+  }
+
+  let reportClipboardText = ''
+
+  window.openAdReport = function openAdReport(id) {
+    const ad = ads.find((a) => a.id === id)
+    if (!ad) return
+    const s = adStats(ad)
+    const placementLabel = ad.placement === 'card' ? 'Card ad' : 'Strip ad'
+    document.getElementById('ad-report-title').textContent = ad.title || 'Ad report'
+    document.getElementById('ad-report-desc').textContent =
+      `${placementLabel} · ${ad.origin} → ${ad.destination}`
+
+    const ctaEntries = Object.entries(s.by_cta || {})
+    const ctaHtml = ctaEntries.length
+      ? `<ul class="ad-report-cta-list">${ctaEntries
+          .map(
+            ([type, n]) =>
+              `<li><span>${escHtml(type)}</span><strong>${escHtml(String(n))}</strong></li>`
+          )
+          .join('')}</ul>`
+      : '<p style="font-size:13px;color:var(--muted);margin:0">No CTA clicks yet.</p>'
+
+    const discountBlock =
+      ad.placement === 'card'
+        ? `<div class="ad-report-grid">
+            <div class="ad-report-stat"><div class="label">Discount opens</div><div class="value">${escHtml(String(s.discount_opens))}</div></div>
+            <div class="ad-report-stat"><div class="label">Code copies</div><div class="value">${escHtml(String(s.code_copies))}</div></div>
+          </div>`
+        : ''
+
+    document.getElementById('ad-report-body').innerHTML = `
+      <div class="ad-report-meta">
+        Status: <strong>${escHtml(ad.schedule_label || ad.status)}</strong><br>
+        Schedule: ${fmtDateRange(ad)} · Category: ${escHtml(ad.category_kind)}
+      </div>
+      <div class="ad-report-grid">
+        <div class="ad-report-stat"><div class="label">Views</div><div class="value">${escHtml(String(s.impressions))}</div></div>
+        <div class="ad-report-stat"><div class="label">CTA clicks</div><div class="value">${escHtml(String(s.clicks))}</div></div>
+        <div class="ad-report-stat"><div class="label">Click rate</div><div class="value">${escHtml(String(s.ctr))}%</div></div>
+        <div class="ad-report-stat"><div class="label">Placement</div><div class="value" style="font-size:1rem">${escHtml(placementLabel)}</div></div>
+      </div>
+      ${discountBlock}
+      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">Clicks by action</div>
+      ${ctaHtml}
+    `
+
+    reportClipboardText = [
+      `Belize Bus Schedules — Ad report`,
+      `${ad.title}`,
+      `${placementLabel}: ${ad.origin} → ${ad.destination}`,
+      `Schedule: ${String(ad.starts_at || '').slice(0, 10)} → ${String(ad.ends_at || '').slice(0, 10)}`,
+      `Status: ${ad.schedule_label || ad.status}`,
+      ``,
+      `Views: ${s.impressions}`,
+      `CTA clicks: ${s.clicks}`,
+      `Click rate: ${s.ctr}%`,
+      ad.placement === 'card'
+        ? `Discount opens: ${s.discount_opens}\nCode copies: ${s.code_copies}`
+        : null,
+      ctaEntries.length
+        ? `By action:\n${ctaEntries.map(([t, n]) => `  ${t}: ${n}`).join('\n')}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    document.getElementById('ad-report-modal').classList.add('open')
+    if (window.AdminIcons) window.AdminIcons.apply(document.getElementById('ad-report-modal'))
+  }
+
+  window.copyAdReport = async function copyAdReport() {
+    if (!reportClipboardText) return
+    try {
+      await navigator.clipboard.writeText(reportClipboardText)
+      toast('Report copied', 'ok')
+    } catch {
+      toast('Could not copy — select text manually', 'err')
     }
   }
 
@@ -624,10 +705,11 @@
     if (!body.title) return toast('Title required', 'err')
     if (!body.starts_at || !body.ends_at) return toast('Schedule dates required', 'err')
 
-    async function send(force) {
+    async function send(pauseOverlaps) {
+      const qs = pauseOverlaps ? '?pause_overlaps=1' : ''
       const url = id
-        ? `${API_BASE}/ads/${encodeURIComponent(id)}${force ? '?force=1' : ''}`
-        : `${API_BASE}/ads${force ? '?force=1' : ''}`
+        ? `${API_BASE}/ads/${encodeURIComponent(id)}${qs}`
+        : `${API_BASE}/ads${qs}`
       const res = await apiFetch(url, {
         method: id ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -641,19 +723,31 @@
       let { res, data } = await send(false)
       if (res.status === 409 && data.code === 'OVERLAP') {
         const names = (data.overlaps || []).map((o) => o.title).join(', ')
+        const plural = (data.overlaps || []).length > 1
         if (
-          confirm(
-            `Overlap with active ad(s): ${names || 'another ad'}.\n\nSave anyway?`
+          !confirm(
+            `This ${body.placement} ad overlaps with ${
+              plural ? 'these active ads' : 'an active ad'
+            }: ${names || 'another ad'}.\n\nPause ${
+              plural ? 'them' : 'it'
+            } and save this one?`
           )
         ) {
-          ;({ res, data } = await send(true))
-        } else {
           return
         }
+        ;({ res, data } = await send(true))
       }
       if (!res.ok) throw new Error(data.error || 'Save failed')
       closeModals()
-      toast(id ? 'Ad updated' : 'Ad created', 'ok')
+      const pausedCount = (data.paused || []).length
+      toast(
+        pausedCount
+          ? `${id ? 'Ad updated' : 'Ad created'}; paused ${pausedCount} overlapping ad${pausedCount > 1 ? 's' : ''}`
+          : id
+            ? 'Ad updated'
+            : 'Ad created',
+        'ok'
+      )
       loadAds()
     } catch (e) {
       toast(e.message, 'err')

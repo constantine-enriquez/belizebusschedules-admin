@@ -1,5 +1,6 @@
 /**
- * Ads validation + D1 helpers for admin / public ad routes.
+ * Ads validation + D1 helpers for admin ad routes.
+ * Public passenger serve lives on api.belizebusschedules.com (Flutter worker.js).
  */
 
 export const PLACEMENTS = new Set(['strip', 'card'])
@@ -376,6 +377,75 @@ export function rowToAd(row) {
   }
 }
 
+export function emptyAdStats() {
+  return {
+    impressions: 0,
+    clicks: 0,
+    discount_opens: 0,
+    code_copies: 0,
+    ctr: 0,
+    by_cta: {},
+  }
+}
+
+/**
+ * Aggregate event counts for many ads (list view).
+ * @returns {Promise<Record<string, ReturnType<typeof emptyAdStats>>>}
+ */
+export async function getAdStatsMap(env, adIds) {
+  const map = {}
+  if (!adIds?.length) return map
+  for (const id of adIds) map[id] = emptyAdStats()
+
+  try {
+    const placeholders = adIds.map(() => '?').join(',')
+    const { results } = await env.DB.prepare(
+      `
+      SELECT
+        ad_id,
+        event,
+        cta_type,
+        COUNT(*) AS n
+      FROM ad_events
+      WHERE ad_id IN (${placeholders})
+      GROUP BY ad_id, event, cta_type
+    `
+    )
+      .bind(...adIds)
+      .all()
+
+    for (const row of results || []) {
+      const stats = map[row.ad_id] || emptyAdStats()
+      const n = Number(row.n) || 0
+      if (row.event === 'impression') stats.impressions += n
+      else if (row.event === 'cta_click') {
+        stats.clicks += n
+        const key = row.cta_type || 'other'
+        stats.by_cta[key] = (stats.by_cta[key] || 0) + n
+      } else if (row.event === 'discount_open') stats.discount_opens += n
+      else if (row.event === 'code_copy') stats.code_copies += n
+      map[row.ad_id] = stats
+    }
+
+    for (const id of Object.keys(map)) {
+      const s = map[id]
+      s.ctr =
+        s.impressions > 0
+          ? Math.round((s.clicks / s.impressions) * 1000) / 10
+          : 0
+    }
+  } catch {
+    // ad_events table may be missing — leave zeros
+  }
+  return map
+}
+
+/** Full stats for one ad (report modal). */
+export async function getAdStatsDetail(env, adId) {
+  const map = await getAdStatsMap(env, [adId])
+  return map[adId] || emptyAdStats()
+}
+
 /**
  * Find overlapping active ads for same placement + route.
  * Overlap if date ranges intersect (starts_at < other.ends AND ends_at > other.starts).
@@ -401,6 +471,22 @@ export async function findOverlaps(env, { placement, origin, destination, starts
     )
     .all()
   return results || []
+}
+
+/** Pause active overlapping ads. Returns the rows that were paused. */
+export async function pauseOverlappingAds(env, overlaps) {
+  if (!overlaps?.length) return []
+  const now = new Date().toISOString()
+  const paused = []
+  for (const row of overlaps) {
+    await env.DB.prepare(
+      `UPDATE ads SET status = 'paused', updated_at = ? WHERE id = ? AND status = 'active'`
+    )
+      .bind(now, row.id)
+      .run()
+    paused.push({ ...row, status: 'paused' })
+  }
+  return paused
 }
 
 export function scheduleLabel(row) {

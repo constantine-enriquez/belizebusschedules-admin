@@ -58,6 +58,7 @@
       ['editVehicleModalIcon', 'edit'],
       ['deleteVehicleModalIcon', 'trash'],
       ['adModalIcon', 'ads'],
+      ['adReportModalIcon', 'ads'],
       ['deleteAdModalIcon', 'trash'],
     ].forEach(function (entry) {
       setIcon(document.getElementById(entry[0]), entry[1])

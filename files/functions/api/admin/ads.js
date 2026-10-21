@@ -6,10 +6,13 @@ import {
 import {
   ensureAdsTable,
   findOverlaps,
+  pauseOverlappingAds,
   normalizeAdPayload,
   rowToAd,
   scheduleLabel,
   assertKnownRoute,
+  getAdStatsMap,
+  emptyAdStats,
 } from '../../lib/adsHelpers.js'
 
 export async function onRequestOptions({ request, env }) {
@@ -42,9 +45,15 @@ export async function onRequestGet({ request, env }) {
     const { results } =
       binds.length > 0 ? await q.bind(...binds).all() : await q.all()
 
-    const ads = (results || []).map((row) => ({
+    const rows = results || []
+    const statsMap = await getAdStatsMap(
+      env,
+      rows.map((r) => r.id)
+    )
+    const ads = rows.map((row) => ({
       ...rowToAd(row),
       schedule_label: scheduleLabel(row),
+      stats: statsMap[row.id] || emptyAdStats(),
     }))
     return jsonResponse({ ads }, 200, cors)
   } catch (e) {
@@ -54,7 +63,7 @@ export async function onRequestGet({ request, env }) {
 
 /**
  * POST — create ad. Body matches ads table fields + ctas[].
- * Query force=1 skips overlap block (still returns warning).
+ * Query pause_overlaps=1 pauses conflicting active ads, then saves (never keeps overlaps).
  */
 export async function onRequestPost({ request, env }) {
   const cors = buildCorsHeaders(request, env)
@@ -76,9 +85,10 @@ export async function onRequestPost({ request, env }) {
     }
 
     const url = new URL(request.url)
-    const force = url.searchParams.get('force') === '1'
+    const pauseOverlaps = url.searchParams.get('pause_overlaps') === '1'
 
     let overlaps = []
+    let paused = []
     if (ad.status === 'active') {
       overlaps = await findOverlaps(env, {
         placement: ad.placement,
@@ -87,7 +97,7 @@ export async function onRequestPost({ request, env }) {
         starts_at: ad.starts_at,
         ends_at: ad.ends_at,
       })
-      if (overlaps.length && !force) {
+      if (overlaps.length && !pauseOverlaps) {
         return jsonResponse(
           {
             error:
@@ -98,6 +108,9 @@ export async function onRequestPost({ request, env }) {
           409,
           cors
         )
+      }
+      if (overlaps.length && pauseOverlaps) {
+        paused = await pauseOverlappingAds(env, overlaps)
       }
     }
 
@@ -146,7 +159,7 @@ export async function onRequestPost({ request, env }) {
       {
         success: true,
         ad: { ...rowToAd(row), schedule_label: scheduleLabel(row) },
-        overlaps: overlaps.length ? overlaps : undefined,
+        paused: paused.length ? paused : undefined,
       },
       200,
       cors
