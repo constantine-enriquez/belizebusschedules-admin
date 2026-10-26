@@ -55,7 +55,6 @@ nav { padding: 18px 10px; flex: 1; }
   font: inherit;
   text-align: left;
   cursor: pointer;
-  color: inherit;
 }
 .nav-group.has-active > .nav-group-toggle {
   color: #fff;

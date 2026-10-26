@@ -3050,7 +3050,8 @@
     el.textContent = msg
     el.className = `show ${type}`
     clearTimeout(toastTimer)
-    toastTimer = setTimeout(() => el.classList.remove('show'), 3000)
+    const duration = type === 'err' ? Math.min(10000, Math.max(5000, String(msg).length * 60)) : 3000
+    toastTimer = setTimeout(() => el.classList.remove('show'), duration)
   }
 
   loadCompanies()
