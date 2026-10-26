@@ -7,7 +7,25 @@
  * extractTrips() is the only provider-specific call; swap it to change AI vendors.
  */
 
-export const DEFAULT_MODEL = 'gemini-2.5-pro'
+// Free-tier models as of Oct 2026 (ai.google.dev/gemini-api/docs/pricing). Pro models are
+// paid-only, and the 2.5 family is limited to accounts that already used it.
+export const DEFAULT_MODEL = 'gemini-3.8-flash'
+export const FALLBACK_MODEL = 'gemini-3.6-flash'
+
+/** Saved 2.5 names from earlier deploys — remap so uploads don't waste a request on a locked model. */
+const LEGACY_MODELS = new Set([
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+])
+
+export function resolveModel(model, env) {
+  const raw = String(model || '').trim()
+  if (!raw || LEGACY_MODELS.has(raw)) return env?.GEMINI_MODEL || DEFAULT_MODEL
+  return raw
+}
 
 export const DEFAULT_SYSTEM_PROMPT = `You read photos of bus timetables for Belize Bus Schedules and return every trip as structured data.
 
@@ -96,12 +114,12 @@ export async function getAiSettings(env) {
   const saved = Object.fromEntries((results || []).map((r) => [r.key, r.value]))
   return {
     system_prompt: saved.system_prompt || DEFAULT_SYSTEM_PROMPT,
-    model: saved.model || env.GEMINI_MODEL || DEFAULT_MODEL,
+    model: resolveModel(saved.model, env),
     is_default_prompt: !saved.system_prompt,
   }
 }
 
-/** Empty values reset that setting to its default. */
+/** Empty values reset that setting to its default. Legacy 2.5 model names clear to the new default. */
 export async function saveAiSettings(env, { system_prompt, model }) {
   await ensureAiSettingsTable(env)
   const now = new Date().toISOString()
@@ -111,7 +129,10 @@ export async function saveAiSettings(env, { system_prompt, model }) {
     ['model', model],
   ]) {
     if (value === undefined) continue
-    const v = String(value ?? '').trim()
+    let v = String(value ?? '').trim()
+    if (key === 'model') {
+      if (!v || LEGACY_MODELS.has(v) || v === DEFAULT_MODEL) v = ''
+    }
     statements.push(
       v
         ? env.DB.prepare(
@@ -140,10 +161,17 @@ function httpError(message, status) {
   return err
 }
 
+/** Errors where another model may still work: unknown/unavailable model or exhausted quota. */
+function isModelUnavailable(err) {
+  if ([403, 404, 429].includes(err.geminiStatus)) return true
+  return err.geminiStatus === 400 && /model|not (available|supported|found)|access/i.test(err.message)
+}
+
 /**
- * @returns {Promise<{ trips: object[], photo_notes: string | null, model: string, usage: object | null }>}
+ * Tries `model`, then FALLBACK_MODEL if that model is unavailable or out of quota.
+ * @returns {Promise<{ trips: object[], photo_notes: string | null, model: string, fell_back_from: string | null, usage: object | null }>}
  */
-export async function extractTrips(env, { imageBase64, mimeType, systemPrompt, model, userText }) {
+export async function extractTrips(env, opts) {
   if (!env.GEMINI_API_KEY) {
     throw httpError(
       'GEMINI_API_KEY is not set. Add it in Cloudflare Pages → Settings → Variables and secrets, then redeploy.',
@@ -151,6 +179,27 @@ export async function extractTrips(env, { imageBase64, mimeType, systemPrompt, m
     )
   }
 
+  const model = resolveModel(opts.model, env)
+  const request = { ...opts, model }
+  try {
+    return { ...(await callGemini(env, request)), fell_back_from: null }
+  } catch (err) {
+    if (model === FALLBACK_MODEL || !isModelUnavailable(err)) throw err
+    const result = await callGemini(env, { ...request, model: FALLBACK_MODEL })
+    return { ...result, fell_back_from: model }
+  }
+}
+
+/** Labels each photo so the model (and its photo_notes) can refer to "Photo 2". */
+function imageParts(images) {
+  if (images.length === 1) return [{ inlineData: { mimeType: images[0].mimeType, data: images[0].data } }]
+  return images.flatMap((img, i) => [
+    { text: `Photo ${i + 1}:` },
+    { inlineData: { mimeType: img.mimeType, data: img.data } },
+  ])
+}
+
+async function callGemini(env, { images, systemPrompt, model, userText }) {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
@@ -161,13 +210,16 @@ export async function extractTrips(env, { imageBase64, mimeType, systemPrompt, m
         contents: [
           {
             role: 'user',
-            parts: [{ text: userText }, { inlineData: { mimeType, data: imageBase64 } }],
+            parts: [{ text: userText }, ...imageParts(images)],
           },
         ],
         generationConfig: {
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA,
-          temperature: 0,
+          // Timetable grids need fine print; HIGH keeps stop names/times readable.
+          mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+          // Uploads are rare and accuracy matters more than latency; 3.x Flash defaults to medium.
+          thinkingConfig: { thinkingLevel: 'HIGH' },
         },
       }),
     }
@@ -176,16 +228,19 @@ export async function extractTrips(env, { imageBase64, mimeType, systemPrompt, m
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const msg = data?.error?.message || `Gemini request failed (${res.status})`
+    let err
     if (res.status === 429) {
-      throw httpError(
-        `Gemini rate limit reached for ${model}. Wait a minute and try again, or switch to a Flash model in AI settings. (${msg})`,
+      err = httpError(
+        `Gemini free-tier limit reached for ${model}. Wait a minute (daily limits reset at midnight Pacific) and try again. (${msg})`,
         429
       )
+    } else if (res.status === 404 || res.status === 403) {
+      err = httpError(`Gemini model "${model}" isn't available to this API key. Change the model in AI settings. (${msg})`, 400)
+    } else {
+      err = httpError(`Gemini: ${msg}`, res.status >= 500 ? 502 : 400)
     }
-    if (res.status === 404) {
-      throw httpError(`Gemini model "${model}" was not found. Change the model in AI settings. (${msg})`, 400)
-    }
-    throw httpError(`Gemini: ${msg}`, res.status >= 500 ? 502 : 400)
+    err.geminiStatus = res.status
+    throw err
   }
 
   const candidate = data?.candidates?.[0]

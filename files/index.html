@@ -839,22 +839,53 @@
   }
   .ai-drop-empty strong { font-size: 14px; color: var(--green-dark); }
   .ai-drop-empty .ui-icon { width: 30px; height: 30px; color: var(--green); }
-  .ai-drop img { width: 100%; height: 100%; max-height: 300px; object-fit: contain; background: #fff; }
-  .ai-drop-name {
-    position: absolute;
-    left: 8px;
-    bottom: 8px;
-    max-width: calc(100% - 16px);
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: rgba(0, 50, 27, 0.75);
-    color: #fff;
+  .ai-drop-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .ai-drop.has-photos { min-height: 96px; }
+  .ai-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .ai-thumb {
+    position: relative;
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .ai-thumb img { display: block; width: 100%; height: 84px; object-fit: cover; background: #f4f6f4; }
+  .ai-thumb-noimg { height: 84px; display: grid; place-items: center; font-size: 11px; color: var(--muted); }
+  .ai-thumb figcaption {
+    padding: 4px 6px;
     font-size: 11px;
-    font-weight: 500;
+    color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .ai-thumb-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 50, 27, 0.8);
+    color: #fff;
+    font-size: 14px;
+    line-height: 22px;
+    cursor: pointer;
+  }
+  .ai-photo-item + .ai-photo-item { border-top: 1px solid var(--border); }
+  .ai-photo-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    background: #fff;
+  }
+  .ai-photo-label a { font-weight: 500; }
 
   .ai-review-grid {
     display: grid;
@@ -1538,7 +1569,7 @@
               <div class="field-help" id="ai-company-help"></div>
             </div>
             <div class="field">
-              <label for="ai-note">Extra instructions for this photo</label>
+              <label for="ai-note">Extra instructions for the AI</label>
               <input id="ai-note" type="text" placeholder="Optional — e.g. This is the Sunday schedule">
             </div>
             <div class="ai-run-row">
@@ -1546,16 +1577,17 @@
               <span class="ai-status" id="ai-status"></span>
             </div>
           </div>
-          <label class="ai-drop" id="ai-drop" for="ai-file">
-            <input id="ai-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" hidden>
-            <div class="ai-drop-empty" id="ai-drop-empty">
-              <span class="ui-icon" data-icon="image"></span>
-              <strong>Drop a schedule photo here</strong>
-              <span>or click to choose · JPEG, PNG, WebP, or HEIC</span>
-            </div>
-            <img id="ai-drop-preview" alt="Selected schedule photo" hidden>
-            <span class="ai-drop-name" id="ai-drop-name" hidden></span>
-          </label>
+          <div class="ai-drop-col">
+            <label class="ai-drop" id="ai-drop" for="ai-file">
+              <input id="ai-file" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" hidden>
+              <div class="ai-drop-empty" id="ai-drop-empty">
+                <span class="ui-icon" data-icon="image"></span>
+                <strong id="ai-drop-title">Drop schedule photos here</strong>
+                <span id="ai-drop-sub">or click to choose · up to 6 photos (e.g. each direction or Sundays)</span>
+              </div>
+            </label>
+            <div class="ai-thumbs" id="ai-thumbs" hidden></div>
+          </div>
         </div>
       </div>
 
@@ -1563,10 +1595,9 @@
         <div class="ai-review-grid">
           <div class="card ai-photo-card">
             <div class="card-header">
-              <div class="card-title">Photo</div>
-              <a class="sch-header-note" id="ai-photo-open" target="_blank" rel="noopener">Open full size</a>
+              <div class="card-title" id="ai-photos-title">Photo</div>
             </div>
-            <div class="ai-photo-wrap"><img id="ai-photo" alt="Uploaded schedule photo"></div>
+            <div class="ai-photo-wrap" id="ai-photos"></div>
           </div>
 
           <div class="card ai-trips-card">
@@ -1988,7 +2019,7 @@
     <div id="ai-apply-lists"></div>
     <label class="switch-row" style="margin-top:12px;cursor:pointer;" id="ai-remove-row">
       <span class="switch-copy">
-        <strong>Remove trips that aren’t in the photo</strong>
+        <strong>Remove trips that weren’t read from the photos</strong>
         <small>Matches your usual “delete all, then re-add” workflow. Undo is available after.</small>
       </span>
       <input type="checkbox" id="ai-remove-missing" checked onchange="renderAiApplyCounts()">
@@ -2019,10 +2050,11 @@
         <label for="ai-model">Gemini model</label>
         <input id="ai-model" type="text" list="ai-model-list" autocomplete="off">
         <datalist id="ai-model-list">
-          <option value="gemini-2.5-pro"></option>
-          <option value="gemini-2.5-flash"></option>
+          <option value="gemini-3.8-flash"></option>
+          <option value="gemini-3.6-flash"></option>
+          <option value="gemini-3.5-flash-lite"></option>
         </datalist>
-        <div class="field-help">Pro reads dense timetables best. Switch to a Flash model if you hit free-tier limits. Leave empty for the default.</div>
+        <div class="field-help">Leave empty for the default (gemini-3.8-flash, free tier). If a model is unavailable or out of quota, it retries once with gemini-3.6-flash. Pro models need a paid Gemini plan.</div>
       </div>
       <div class="field">
         <label for="ai-prompt">System instructions <span id="ai-prompt-state" style="text-transform:none;letter-spacing:0;font-weight:500;"></span></label>

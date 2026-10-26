@@ -5,6 +5,8 @@
  */
 ;(function () {
   const MAX_DIM = 2400
+  const MAX_PHOTOS = 6
+  const MAX_TOTAL_BYTES = 14 * 1024 * 1024
   const LOW_CONFIDENCE = 0.7
   const FIELD_LABELS = {
     company: 'company',
@@ -23,7 +25,9 @@
   let aiCompany = ''
   let companyMeta = null
   let currentCount = 0
-  let upload = null
+  let uploads = []
+  let reviewPhotos = []
+  let nextUploadId = 1
   let drafts = []
   let nextDraftId = 1
   let plan = null
@@ -84,7 +88,7 @@
   }
 
   function updateRunButton() {
-    $('ai-run-btn').disabled = busy || !aiCompany || !upload
+    $('ai-run-btn').disabled = busy || !aiCompany || !uploads.length
   }
 
   // ── Photo ─────────────────────────────────────────────────
@@ -111,29 +115,86 @@
     return { blob: file, type }
   }
 
-  async function onFileChosen(file) {
-    if (!file) return
-    const okType =
-      /^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)
-    if (!okType) return toast('Choose a JPEG, PNG, WebP, or HEIC photo', 'err')
+  const totalBytes = () => uploads.reduce((sum, u) => sum + u.blob.size, 0)
 
-    const prepared = await prepareImage(file)
-    if (prepared.blob.size > 14 * 1024 * 1024) return toast('Photo is too large (max 14 MB)', 'err')
-    if (upload?.previewUrl) URL.revokeObjectURL(upload.previewUrl)
-    upload = { ...prepared, name: file.name, previewUrl: URL.createObjectURL(prepared.blob) }
-
-    const img = $('ai-drop-preview')
-    img.onerror = () => {
-      img.hidden = true
-      $('ai-drop-empty').hidden = false
-      $('ai-drop-empty').querySelector('strong').textContent = 'Photo attached (no preview in this browser)'
+  async function onFilesChosen(fileList) {
+    const files = Array.from(fileList || [])
+    if (!files.length) return
+    const skipped = []
+    for (const file of files) {
+      if (uploads.length >= MAX_PHOTOS) {
+        skipped.push(`only ${MAX_PHOTOS} photos at a time`)
+        break
+      }
+      const okType =
+        /^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)
+      if (!okType) {
+        skipped.push(`${file.name} isn't a JPEG, PNG, WebP, or HEIC`)
+        continue
+      }
+      const prepared = await prepareImage(file)
+      if (totalBytes() + prepared.blob.size > MAX_TOTAL_BYTES) {
+        skipped.push(`${file.name} would go over 14 MB total`)
+        continue
+      }
+      uploads.push({ ...prepared, id: nextUploadId++, name: file.name, previewUrl: URL.createObjectURL(prepared.blob) })
     }
-    img.src = upload.previewUrl
-    img.hidden = false
-    $('ai-drop-empty').hidden = true
-    $('ai-drop-name').textContent = file.name
-    $('ai-drop-name').hidden = false
+    if (skipped.length) toast(`Skipped: ${skipped.join('; ')}`, 'err')
+    renderThumbs()
+  }
+
+  function releaseUnused(list) {
+    for (const u of list) {
+      if (!uploads.includes(u) && !reviewPhotos.includes(u)) URL.revokeObjectURL(u.previewUrl)
+    }
+  }
+
+  function removeUpload(id) {
+    const removed = uploads.filter((x) => x.id === id)
+    uploads = uploads.filter((x) => x.id !== id)
+    releaseUnused(removed)
+    renderThumbs()
+  }
+
+  function renderThumbs() {
+    const n = uploads.length
+    $('ai-drop').classList.toggle('has-photos', n > 0)
+    $('ai-drop-title').textContent = !n
+      ? 'Drop schedule photos here'
+      : n >= MAX_PHOTOS
+        ? `${n} photos attached (max)`
+        : `${n} photo${n === 1 ? '' : 's'} attached. Add another?`
+    $('ai-drop-sub').textContent = n
+      ? 'Add every page of this company’s timetable so trips aren’t removed by mistake'
+      : 'or click to choose · up to 6 photos (e.g. each direction or Sundays)'
+    const thumbs = $('ai-thumbs')
+    thumbs.hidden = !n
+    thumbs.innerHTML = uploads
+      .map(
+        (u, i) => `<figure class="ai-thumb">
+          <img src="${escAttr(u.previewUrl)}" alt="Photo ${i + 1}" onerror="this.outerHTML='<div class=&quot;ai-thumb-noimg&quot;>No preview</div>'">
+          <button type="button" class="ai-thumb-remove" data-remove-photo="${u.id}" aria-label="Remove ${escAttr(u.name)}">×</button>
+          <figcaption title="${escAttr(u.name)}">${i + 1}. ${escHtml(u.name)}</figcaption>
+        </figure>`
+      )
+      .join('')
     updateRunButton()
+  }
+
+  function renderReviewPhotos() {
+    const many = reviewPhotos.length > 1
+    $('ai-photos-title').textContent = many ? `Photos (${reviewPhotos.length})` : 'Photo'
+    $('ai-photos').innerHTML = reviewPhotos
+      .map(
+        (u, i) => `<div class="ai-photo-item">
+          <div class="ai-photo-label">
+            <span>${many ? `Photo ${i + 1}` : escHtml(u.name)}</span>
+            <a href="${escAttr(u.previewUrl)}" target="_blank" rel="noopener">Open full size</a>
+          </div>
+          <img src="${escAttr(u.previewUrl)}" alt="Schedule photo ${i + 1}">
+        </div>`
+      )
+      .join('')
   }
 
   // ── Extract ───────────────────────────────────────────────
@@ -155,16 +216,18 @@
 
   window.runAiExtract = async function runAiExtract() {
     if (!aiCompany) return toast('Pick a company first', 'err')
-    if (!upload) return toast('Choose a schedule photo first', 'err')
+    if (!uploads.length) return toast('Choose a schedule photo first', 'err')
     if (drafts.length && !confirm('Replace the trips currently in review with a new read?')) return
 
     const started = Date.now()
-    setBusy(true, 'Reading schedule… this can take up to a minute.')
+    const sending = [...uploads]
+    const many = sending.length > 1
+    setBusy(true, `Reading ${many ? `${sending.length} photos` : 'schedule'}… this can take a minute or two.`)
     try {
       const form = new FormData()
       form.append('company', aiCompany)
       form.append('note', $('ai-note').value.trim())
-      form.append('image', new File([upload.blob], upload.name, { type: upload.type }))
+      for (const u of sending) form.append('image', new File([u.blob], u.name, { type: u.type }))
       const res = await apiFetch(`${API_BASE}/schedule-ai/extract`, { method: 'POST', body: form })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || `Extraction failed (${res.status})`)
@@ -181,8 +244,10 @@
       currentCount = data.current_count ?? currentCount
       plan = null
 
-      $('ai-photo').src = upload.previewUrl
-      $('ai-photo-open').href = upload.previewUrl
+      const previous = reviewPhotos
+      reviewPhotos = sending
+      releaseUnused(previous)
+      renderReviewPhotos()
       const notes = $('ai-photo-notes')
       notes.hidden = !data.photo_notes
       notes.textContent = data.photo_notes ? `Note from the AI: ${data.photo_notes}` : ''
@@ -192,8 +257,9 @@
       $('ai-review').scrollIntoView({ behavior: 'smooth', block: 'start' })
 
       const secs = Math.round((Date.now() - started) / 1000)
-      setBusy(false, `Read ${drafts.length} trip${drafts.length === 1 ? '' : 's'} with ${data.model} in ${secs}s.`)
-      if (!drafts.length) toast('No trips found in that photo — try a clearer shot', 'err')
+      const fallback = data.fell_back_from ? ` (${data.fell_back_from} was unavailable or out of quota)` : ''
+      setBusy(false, `Read ${drafts.length} trip${drafts.length === 1 ? '' : 's'} with ${data.model}${fallback} in ${secs}s.`)
+      if (!drafts.length) toast(`No trips found in ${many ? 'those photos' : 'that photo'}. Try a clearer shot`, 'err')
     } catch (e) {
       setBusy(false, '')
       toast(e.message, 'err')
@@ -217,7 +283,7 @@
         outWarnings.unshift(`AI was unsure about this trip (${Math.round(d.confidence * 100)}%)`)
       }
     }
-    if (d.include && dupKeys.get(tripKey(d.trip)) > 1) outWarnings.unshift('Same as another trip in this photo')
+    if (d.include && dupKeys.get(tripKey(d.trip)) > 1) outWarnings.unshift('Same as another trip in the read')
     return { errors: outErrors, warnings: outWarnings }
   }
 
@@ -447,7 +513,7 @@
       ),
       removeMissing
         ? listBlock(
-            'Removed — not in the photo',
+            reviewPhotos.length > 1 ? 'Removed — not in the photos' : 'Removed — not in the photo',
             data.plan.remove.map(
               (r) =>
                 `${tripLine(r)} <span>· BID ${r.bid}</span>${
@@ -536,17 +602,15 @@
   window.resetAiUpload = function resetAiUpload() {
     $('ai-done').hidden = true
     clearReview()
-    if (upload?.previewUrl) URL.revokeObjectURL(upload.previewUrl)
-    upload = null
+    const all = [...uploads, ...reviewPhotos]
+    uploads = []
+    reviewPhotos = []
+    releaseUnused(all)
+    $('ai-photos').innerHTML = ''
     $('ai-file').value = ''
     $('ai-note').value = ''
-    $('ai-drop-preview').hidden = true
-    $('ai-drop-preview').removeAttribute('src')
-    $('ai-drop-name').hidden = true
-    $('ai-drop-empty').hidden = false
-    $('ai-drop-empty').querySelector('strong').textContent = 'Drop a schedule photo here'
     $('ai-status').textContent = ''
-    updateRunButton()
+    renderThumbs()
     $('ai-upload-card').scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -610,7 +674,14 @@
   // ── Wiring ────────────────────────────────────────────────
 
   const drop = $('ai-drop')
-  $('ai-file')?.addEventListener('change', (e) => onFileChosen(e.target.files[0]))
+  $('ai-file')?.addEventListener('change', async (e) => {
+    await onFilesChosen(e.target.files)
+    e.target.value = ''
+  })
+  $('ai-thumbs')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-remove-photo]')
+    if (btn) removeUpload(Number(btn.dataset.removePhoto))
+  })
   drop?.addEventListener('dragover', (e) => {
     e.preventDefault()
     drop.classList.add('dragging')
@@ -619,7 +690,7 @@
   drop?.addEventListener('drop', (e) => {
     e.preventDefault()
     drop.classList.remove('dragging')
-    onFileChosen(e.dataTransfer.files[0])
+    onFilesChosen(e.dataTransfer.files)
   })
 
   $('ai-table-body')?.addEventListener('change', (e) => {

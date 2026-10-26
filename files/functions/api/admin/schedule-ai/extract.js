@@ -4,9 +4,12 @@ import {
   requireAccess,
 } from '../../../lib/adminHelpers.js'
 import { bytesToBase64, extractTrips, getAiSettings } from '../../../lib/geminiExtract.js'
-import { companyPhone, normalizeSchedulePayload } from '../../../lib/scheduleHelpers.js'
+import { companyPhone, normalizeSchedulePayload, rowToSchedule } from '../../../lib/scheduleHelpers.js'
 
 const MAX_IMAGE_BYTES = 14 * 1024 * 1024
+const MAX_PHOTOS = 6
+// Gemini caps inline request data at ~20 MB, and base64 adds a third on top of the raw bytes.
+const MAX_TOTAL_BYTES = 14 * 1024 * 1024
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
 export async function onRequestOptions({ request, env }) {
@@ -57,8 +60,38 @@ async function companyContext(env, company) {
   }
 }
 
+/** One saved trip in the response format, so the model copies this company's naming and stop style. */
+async function exampleTrip(env, company) {
+  const stopCount = `CASE WHEN json_valid(stops_data) THEN
+      CASE WHEN json_type(stops_data) = 'array' THEN json_array_length(stops_data) ELSE 0 END
+    ELSE 0 END`
+  const row = await env.DB.prepare(
+    `SELECT * FROM bus_schedule_v2
+     WHERE company = ? AND ${stopCount} >= 2
+     ORDER BY ${stopCount} DESC, BID ASC LIMIT 1`
+  )
+    .bind(company)
+    .first()
+    .catch(() => null)
+  if (!row) return null
+  const s = rowToSchedule(row)
+  if (s.stops_invalid) return null
+  return {
+    route: s.route,
+    origin: s.origin,
+    destination: s.destination,
+    departure_time: s.departure_time,
+    arrival_time: s.arrival_time,
+    days_of_operation: s.days_of_operation,
+    service_type: s.service_type,
+    notes: s.notes,
+    stops: s.stops,
+  }
+}
+
 /**
- * POST multipart/form-data { company, image, note? }
+ * POST multipart/form-data { company, image (1–6, repeated field), note? }
+ * All photos go to Gemini in one request so trips spread across them come back as one list.
  * → { trips: [{ trip, errors, warnings, confidence, unreadable_fields }], photo_notes, current_count, model }
  * Nothing is written to bus_schedule_v2 here; see /api/admin/schedule-ai/apply.
  */
@@ -76,43 +109,60 @@ export async function onRequestPost({ request, env }) {
 
   const company = String(form.get('company') || '').trim()
   const note = String(form.get('note') || '').trim().slice(0, 1000)
-  const image = form.get('image')
+  const photos = form.getAll('image').filter((f) => f && typeof f !== 'string')
   if (!company) return jsonResponse({ error: 'Pick a company first' }, 400, cors)
-  if (!image || typeof image === 'string') {
-    return jsonResponse({ error: 'Attach a schedule photo' }, 400, cors)
+  if (!photos.length) return jsonResponse({ error: 'Attach a schedule photo' }, 400, cors)
+  if (photos.length > MAX_PHOTOS) {
+    return jsonResponse({ error: `Attach at most ${MAX_PHOTOS} photos at a time` }, 400, cors)
   }
-  const mimeType = (image.type || '').toLowerCase()
-  if (!ALLOWED_TYPES.includes(mimeType)) {
-    return jsonResponse({ error: 'Photo must be JPEG, PNG, WebP, or HEIC' }, 400, cors)
+  for (const photo of photos) {
+    if (!ALLOWED_TYPES.includes((photo.type || '').toLowerCase())) {
+      return jsonResponse({ error: `${photo.name || 'A photo'} must be JPEG, PNG, WebP, or HEIC` }, 400, cors)
+    }
+    if (photo.size > MAX_IMAGE_BYTES) {
+      return jsonResponse({ error: `${photo.name || 'A photo'} is too large (max 14 MB)` }, 400, cors)
+    }
   }
-  if (image.size > MAX_IMAGE_BYTES) {
-    return jsonResponse({ error: 'Photo is too large (max 14 MB)' }, 400, cors)
+  if (photos.reduce((sum, p) => sum + p.size, 0) > MAX_TOTAL_BYTES) {
+    return jsonResponse({ error: 'Photos are too large together (max 14 MB total) — try fewer at a time' }, 400, cors)
   }
 
   try {
-    const [settings, ctx, phone, countRow] = await Promise.all([
+    const [settings, ctx, phone, countRow, example] = await Promise.all([
       getAiSettings(env),
       companyContext(env, company),
       companyPhone(env, company),
       env.DB.prepare('SELECT COUNT(*) AS n FROM bus_schedule_v2 WHERE company = ?').bind(company).first(),
+      exampleTrip(env, company),
     ])
 
+    const many = photos.length > 1
     const userText = [
       `Company: ${company}`,
       ctx.routes.length ? `This company's current route names: ${ctx.routes.join('; ')}` : null,
       `Known place spellings: ${ctx.places.join('; ')}`,
       `Known days_of_operation values: ${ctx.days.join('; ')}`,
       `Known service_type values: ${ctx.services.join('; ')}`,
-      note ? `Extra instructions for this photo: ${note}` : null,
-      'Extract every trip shown in the attached photo.',
+      example
+        ? `Example of one trip already saved for ${company}, in the exact output format. Match its place names, route naming, and stop style. Only return it if it actually appears in the ${many ? 'photos' : 'photo'}:\n${JSON.stringify(example)}`
+        : null,
+      many
+        ? `There are ${photos.length} photos, all part of ${company}'s timetable (for example different directions, days, or pages). Combine them into one list. If the same trip appears in more than one photo, return it once. In photo_notes, refer to photos by number.`
+        : null,
+      note ? `Extra instructions: ${note}` : null,
+      many ? 'Extract every trip shown across all the attached photos.' : 'Extract every trip shown in the attached photo.',
     ]
       .filter(Boolean)
       .join('\n\n')
 
-    const bytes = new Uint8Array(await image.arrayBuffer())
+    const images = await Promise.all(
+      photos.map(async (p) => ({
+        mimeType: p.type.toLowerCase(),
+        data: bytesToBase64(new Uint8Array(await p.arrayBuffer())),
+      }))
+    )
     const result = await extractTrips(env, {
-      imageBase64: bytesToBase64(bytes),
-      mimeType,
+      images,
       systemPrompt: settings.system_prompt,
       model: settings.model,
       userText,
@@ -141,6 +191,7 @@ export async function onRequestPost({ request, env }) {
         photo_notes: result.photo_notes,
         current_count: countRow?.n ?? 0,
         model: result.model,
+        fell_back_from: result.fell_back_from,
         usage: result.usage,
       },
       200,
