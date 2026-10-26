@@ -3,12 +3,12 @@ import {
   jsonResponse,
   requireAccess,
 } from '../../../lib/adminHelpers.js'
-import { bytesToBase64, extractTrips, getAiSettings } from '../../../lib/geminiExtract.js'
+import { bytesToBase64, extractTrips, getAiSettings } from '../../../lib/aiExtract.js'
 import { companyPhone, normalizeSchedulePayload, rowToSchedule } from '../../../lib/scheduleHelpers.js'
 
 const MAX_IMAGE_BYTES = 14 * 1024 * 1024
 const MAX_PHOTOS = 6
-// Gemini caps inline request data at ~20 MB, and base64 adds a third on top of the raw bytes.
+// Gemini caps inline request data at ~20 MB (Claude at 32 MB), and base64 adds a third to the raw bytes.
 const MAX_TOTAL_BYTES = 14 * 1024 * 1024
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
@@ -91,8 +91,9 @@ async function exampleTrip(env, company) {
 
 /**
  * POST multipart/form-data { company, image (1–6, repeated field), note? }
- * All photos go to Gemini in one request so trips spread across them come back as one list.
- * → { trips: [{ trip, errors, warnings, confidence, unreadable_fields }], photo_notes, current_count, model }
+ * All photos go to the AI in one request so trips spread across them come back as one list.
+ * → { trips: [{ trip, errors, warnings, confidence, unreadable_fields }], photo_notes, current_count,
+ *     model, model_label, fell_back_from, fallback_reason, usage, cost_usd }
  * Nothing is written to bus_schedule_v2 here; see /api/admin/schedule-ai/apply.
  */
 export async function onRequestPost({ request, env }) {
@@ -191,8 +192,11 @@ export async function onRequestPost({ request, env }) {
         photo_notes: result.photo_notes,
         current_count: countRow?.n ?? 0,
         model: result.model,
+        model_label: result.model_label,
         fell_back_from: result.fell_back_from,
+        fallback_reason: result.fallback_reason,
         usage: result.usage,
+        cost_usd: result.cost_usd,
       },
       200,
       cors

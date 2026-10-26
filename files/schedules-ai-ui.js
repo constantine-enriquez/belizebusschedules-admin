@@ -52,8 +52,30 @@
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Failed to load AI settings')
     settings = data
-    $('ai-key-missing').hidden = !!data.has_api_key
+    showKeyNotice($('ai-key-missing'), data.model)
     return data
+  }
+
+  const SECRET_FOR = { claude: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY' }
+  const modelById = (id) => settings?.models.find((m) => m.id === id)
+
+  /** Explains a missing API key for `modelId`, including whether free Gemini covers for it. */
+  function showKeyNotice(el, modelId) {
+    const m = modelById(modelId)
+    const where = 'in Cloudflare Pages → Settings → Variables and secrets, then redeploy.'
+    let html = ''
+    if (!settings.keys.claude && !settings.keys.gemini) {
+      html = `<strong>No AI key set.</strong> Add <code>ANTHROPIC_API_KEY</code> (Claude) or <code>GEMINI_API_KEY</code> (free Gemini) ${where}`
+    } else if (m && !m.has_key) {
+      const covered = m.provider === 'claude' && settings.keys.gemini ? ' Until then, photos are read with free Gemini.' : ''
+      html = `<strong>${escHtml(m.label)} isn't set up.</strong> Add a secret named <code>${SECRET_FOR[m.provider]}</code> ${where}${covered}`
+    }
+    el.innerHTML = html
+    el.hidden = !html
+  }
+
+  function formatCost(usd) {
+    return usd < 0.01 ? 'under $0.01' : `about $${usd.toFixed(2)}`
   }
 
   window.onAiCompanyChange = async function onAiCompanyChange() {
@@ -257,8 +279,12 @@
       $('ai-review').scrollIntoView({ behavior: 'smooth', block: 'start' })
 
       const secs = Math.round((Date.now() - started) / 1000)
-      const fallback = data.fell_back_from ? ` (${data.fell_back_from} was unavailable or out of quota)` : ''
-      setBusy(false, `Read ${drafts.length} trip${drafts.length === 1 ? '' : 's'} with ${data.model}${fallback} in ${secs}s.`)
+      const cost = typeof data.cost_usd === 'number' ? ` Cost ${formatCost(data.cost_usd)} in Claude credits.` : ''
+      const fallback = data.fell_back_from ? ` Fallback used. ${data.fallback_reason}` : ''
+      setBusy(
+        false,
+        `Read ${drafts.length} trip${drafts.length === 1 ? '' : 's'} with ${data.model_label || data.model} in ${secs}s.${cost}${fallback}`
+      )
       if (!drafts.length) toast(`No trips found in ${many ? 'those photos' : 'that photo'}. Try a clearer shot`, 'err')
     } catch (e) {
       setBusy(false, '')
@@ -622,16 +648,45 @@
     $('ai-prompt-state').textContent = isDefault ? '(default)' : '(customized)'
   }
 
+  function renderModelOptions(s) {
+    const groups = [
+      ['claude', 'Claude (paid from your Claude credits)'],
+      ['gemini', 'Gemini (free tier)'],
+    ]
+    $('ai-model').innerHTML = groups
+      .map(([provider, title]) => {
+        const opts = s.models
+          .filter((m) => m.provider === provider)
+          .map((m) => {
+            const tags = [m.id === s.default_model ? 'recommended' : '', m.has_key ? '' : 'key not set'].filter(Boolean)
+            const label = tags.length ? `${m.label} (${tags.join(', ')})` : m.label
+            return `<option value="${escAttr(m.id)}">${escHtml(label)}</option>`
+          })
+          .join('')
+        return `<optgroup label="${escAttr(title)}">${opts}</optgroup>`
+      })
+      .join('')
+    $('ai-model').value = s.model
+  }
+
+  window.onAiModelChange = function onAiModelChange() {
+    const m = modelById($('ai-model').value)
+    if (!m) return
+    const fallback =
+      m.provider === 'claude'
+        ? 'If Claude is busy or out of credits, the photo is read with free Gemini instead.'
+        : 'If this model is busy or out of quota, another free Gemini model is tried.'
+    $('ai-model-help').textContent = `${m.note} ${fallback}`
+    showKeyNotice($('ai-settings-key'), m.id)
+  }
+
   window.openAiSettings = async function openAiSettings() {
     try {
       const s = await fetchSettings()
-      $('ai-model').value = s.model === s.default_model ? '' : s.model
-      $('ai-model').placeholder = s.default_model
+      renderModelOptions(s)
+      onAiModelChange()
       $('ai-prompt').value = s.system_prompt
       setPromptState()
-      const key = $('ai-settings-key')
-      key.hidden = s.has_api_key
-      key.innerHTML = 'No <code>GEMINI_API_KEY</code> secret found. Add it in Cloudflare Pages → Settings → Variables and secrets, then redeploy.'
       $('ai-settings-modal').classList.add('open')
       if (window.AdminIcons) window.AdminIcons.apply($('ai-settings-modal'))
     } catch (e) {
@@ -656,12 +711,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           system_prompt: prompt === settings.default_system_prompt.trim() ? '' : prompt,
-          model: $('ai-model').value.trim(),
+          model: $('ai-model').value,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Save failed')
       settings = data
+      showKeyNotice($('ai-key-missing'), data.model)
       closeModals()
       toast('AI settings saved', 'ok')
     } catch (e) {

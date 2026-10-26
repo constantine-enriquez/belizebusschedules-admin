@@ -6,9 +6,12 @@ import {
 import {
   DEFAULT_MODEL,
   DEFAULT_SYSTEM_PROMPT,
+  MODELS,
   getAiSettings,
+  modelInfo,
+  providerKeys,
   saveAiSettings,
-} from '../../../lib/geminiExtract.js'
+} from '../../../lib/aiExtract.js'
 
 export async function onRequestOptions({ request, env }) {
   const cors = buildCorsHeaders(request, env)
@@ -17,12 +20,14 @@ export async function onRequestOptions({ request, env }) {
 
 async function settingsResponse(env, cors) {
   const settings = await getAiSettings(env)
+  const keys = providerKeys(env)
   return jsonResponse(
     {
       ...settings,
       default_system_prompt: DEFAULT_SYSTEM_PROMPT,
-      default_model: env.GEMINI_MODEL || DEFAULT_MODEL,
-      has_api_key: !!env.GEMINI_API_KEY,
+      default_model: DEFAULT_MODEL,
+      models: MODELS.map(({ id, provider, label, note }) => ({ id, provider, label, note, has_key: keys[provider] })),
+      keys,
     },
     200,
     cors
@@ -55,12 +60,13 @@ export async function onRequestPut({ request, env }) {
   if (body.system_prompt != null && String(body.system_prompt).length > 20000) {
     return jsonResponse({ error: 'System prompt is too long (max 20,000 characters)' }, 400, cors)
   }
-  if (body.model != null && !/^[\w.\-]{0,80}$/.test(String(body.model).trim())) {
-    return jsonResponse({ error: 'Model name looks invalid' }, 400, cors)
+  const model = body.model == null ? undefined : String(body.model).trim()
+  if (model && !modelInfo(model)) {
+    return jsonResponse({ error: 'Pick a model from the list' }, 400, cors)
   }
 
   try {
-    await saveAiSettings(env, { system_prompt: body.system_prompt, model: body.model })
+    await saveAiSettings(env, { system_prompt: body.system_prompt, model })
     return await settingsResponse(env, cors)
   } catch (e) {
     return jsonResponse({ error: e.message }, 500, cors)

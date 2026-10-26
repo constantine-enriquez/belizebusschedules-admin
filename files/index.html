@@ -1553,9 +1553,7 @@
         <button class="btn btn-ghost" onclick="openAiSettings()">AI settings</button>
       </div>
 
-      <div id="ai-key-missing" class="sch-notice" hidden>
-        <strong>Gemini API key not set.</strong> Add a secret named <code>GEMINI_API_KEY</code> in Cloudflare Pages → Settings → Variables and secrets, then redeploy. Get a free key at aistudio.google.com/apikey.
-      </div>
+      <div id="ai-key-missing" class="sch-notice" hidden></div>
 
       <div class="card" id="ai-upload-card" style="margin-bottom:16px;">
         <div class="ai-upload-grid">
@@ -2038,7 +2036,7 @@
       <div class="modal-icon modal-icon-green" data-icon="ai-upload"></div>
       <div class="ad-editor-heading">
         <div class="modal-title">AI settings</div>
-        <div class="modal-desc">Instructions Gemini follows for every schedule photo. Saved in D1 — no redeploy needed.</div>
+        <div class="modal-desc">Which AI reads your schedule photos, and the instructions it follows. Saved in D1 — no redeploy needed.</div>
       </div>
       <button type="button" class="icon-close" onclick="closeModals()" aria-label="Close AI settings">
         <span class="ui-icon" data-icon="close"></span>
@@ -2047,14 +2045,9 @@
     <div class="sch-editor-body">
       <div id="ai-settings-key" class="sch-notice" hidden></div>
       <div class="field">
-        <label for="ai-model">Gemini model</label>
-        <input id="ai-model" type="text" list="ai-model-list" autocomplete="off">
-        <datalist id="ai-model-list">
-          <option value="gemini-3.8-flash"></option>
-          <option value="gemini-3.6-flash"></option>
-          <option value="gemini-3.5-flash-lite"></option>
-        </datalist>
-        <div class="field-help">Leave empty for the default (gemini-3.8-flash, free tier). If a model is unavailable or out of quota, it retries once with gemini-3.6-flash. Pro models need a paid Gemini plan.</div>
+        <label for="ai-model">AI model</label>
+        <select id="ai-model" onchange="onAiModelChange()"></select>
+        <div class="field-help" id="ai-model-help"></div>
       </div>
       <div class="field">
         <label for="ai-prompt">System instructions <span id="ai-prompt-state" style="text-transform:none;letter-spacing:0;font-weight:500;"></span></label>
@@ -2273,7 +2266,7 @@
 <script>
   // ── CONFIG ────────────────────────────────────────────────
   // Pages bindings: D1 as DB, R2 as BUS_IMAGES. Variables: DRIVER_API_BASE_URL, ADMIN_API_SECRET,
-  // GEMINI_API_KEY, optional IMAGES_PUBLIC_BASE (default https://images.belizebusschedules.com)
+  // ANTHROPIC_API_KEY and/or GEMINI_API_KEY, optional IMAGES_PUBLIC_BASE (default https://images.belizebusschedules.com)
   const API_BASE = '/api/admin'
   function apiFetch(url, opts = {}) {
     return fetch(url, { credentials: 'include', ...opts })
