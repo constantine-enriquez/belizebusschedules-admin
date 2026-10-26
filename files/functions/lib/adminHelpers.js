@@ -73,6 +73,11 @@ export async function verifyAccessJWT(request, teamDomain) {
   }
 }
 
+/**
+ * The admin UI calls this API from its own origin, which needs no CORS headers.
+ * Other origins get access only when listed in CORS_ORIGINS — never by reflection,
+ * since requests carry the admin's Cloudflare Access cookie.
+ */
 export function buildCorsHeaders(request, env) {
   const origin = request.headers.get('Origin') || ''
   const list = (env.CORS_ORIGINS || '')
@@ -80,39 +85,15 @@ export function buildCorsHeaders(request, env) {
     .map((s) => s.trim())
     .filter(Boolean)
 
-  const base = {
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers':
-      'Content-Type, Authorization, Cf-Access-Jwt-Assertion',
-    'Access-Control-Max-Age': '86400',
-  }
-
-  if (list.length && origin && list.includes(origin)) {
-    return {
-      ...base,
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Credentials': 'true',
-    }
-  }
-
-  if (list.length && !origin) {
-    return {
-      ...base,
-      'Access-Control-Allow-Origin': list[0],
-    }
-  }
-
-  if (origin) {
-    return {
-      ...base,
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Credentials': 'true',
-    }
-  }
+  if (!origin || !list.includes(origin)) return {}
 
   return {
-    ...base,
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cf-Access-Jwt-Assertion',
+    'Access-Control-Max-Age': '86400',
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    Vary: 'Origin',
   }
 }
 
@@ -121,24 +102,6 @@ export function jsonResponse(data, status, cors) {
     status,
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
-}
-
-export function supabaseErrorMessage(body) {
-  if (!body || typeof body !== 'object') return 'Supabase error'
-  return (
-    body.msg ||
-    body.message ||
-    body.error_description ||
-    body.hint ||
-    (typeof body.error === 'string' ? body.error : null) ||
-    'Supabase error'
-  )
-}
-
-export function adminUserIdFromCreateResponse(authJson) {
-  if (authJson.user && authJson.user.id) return authJson.user.id
-  if (authJson.id) return authJson.id
-  return null
 }
 
 /**

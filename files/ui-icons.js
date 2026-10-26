@@ -9,6 +9,14 @@
     bus: '<path d="M6 17h12M6 17a2 2 0 0 1-2-2V6c0-2 2-3 8-3s8 1 8 3v9a2 2 0 0 1-2 2M6 17v2m12-2v2M4 10h16M7 14h.01M17 14h.01"/>',
     sessions: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     ads: '<path d="m3 11 18-5v12L3 13v-2Z"/><path d="M7 14v5a2 2 0 0 0 2 2h2l-1.5-6"/>',
+    schedules:
+      '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
+    manual:
+      '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
+    'ai-upload':
+      '<path d="M12 16V6"/><path d="m8 10 4-4 4 4"/><path d="M4 18h16"/><path d="M7 21h10"/>',
+    chevron:
+      '<path d="m9 6 6 6-6 6"/>',
     edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
     trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
@@ -37,6 +45,11 @@
 
     scope.querySelectorAll('.nav-item').forEach(function (item) {
       const section = item.getAttribute('data-section') || ''
+      const dataIcon = item.querySelector('.nav-icon[data-icon]')
+      if (dataIcon) {
+        setIcon(dataIcon, dataIcon.getAttribute('data-icon'))
+        return
+      }
       const name =
         section === 'users'
           ? 'users'
@@ -46,8 +59,16 @@
               ? 'sessions'
               : section === 'ads'
                 ? 'ads'
-                : null
+                : section === 'schedules-manual'
+                  ? 'manual'
+                  : section === 'schedules-ai'
+                    ? 'ai-upload'
+                    : null
       if (name) setIcon(item.querySelector('.nav-icon'), name)
+    })
+
+    scope.querySelectorAll('.nav-chevron').forEach(function (node) {
+      setIcon(node, 'chevron')
     })
 
     ;[

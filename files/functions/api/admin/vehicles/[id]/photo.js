@@ -37,6 +37,13 @@ function publicBase(env) {
   return 'https://images.belizebusschedules.com'
 }
 
+/** R2 key for a photo URL we issued, or null for external/unknown URLs. */
+function keyFromPhotoUrl(url, base) {
+  const s = String(url || '')
+  if (!s.startsWith(`${base}/`)) return null
+  return s.slice(base.length + 1).split('?')[0] || null
+}
+
 function vehicleIdFromContext(context) {
   const { params, request } = context
   if (params?.id) return params.id
@@ -75,7 +82,7 @@ export async function onRequestPost(context) {
 
   try {
     const row = await env.DB.prepare(
-      'SELECT id, company_name FROM vehicles WHERE id = ? LIMIT 1'
+      'SELECT id, company_name, photo_url FROM vehicles WHERE id = ? LIMIT 1'
     )
       .bind(id)
       .first()
@@ -121,11 +128,17 @@ export async function onRequestPost(context) {
     const slug = companyFolderSlug(row.company_name)
     const key = `${slug}/${id}.${ext}`
     const base = publicBase(env)
-    const photoUrl = `${base}/${key}`
+    // Same key on re-upload, so the version param stops browsers/CDN serving the old photo.
+    const photoUrl = `${base}/${key}?v=${Date.now().toString(36)}`
 
     await env.BUS_IMAGES.put(key, buf, {
       httpMetadata: { contentType: mime },
     })
+
+    const oldKey = keyFromPhotoUrl(row.photo_url, base)
+    if (oldKey && oldKey !== key) {
+      await env.BUS_IMAGES.delete(oldKey).catch(() => {})
+    }
 
     const now = new Date().toISOString()
     await env.DB.prepare(

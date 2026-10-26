@@ -137,6 +137,58 @@
 
   .nav-icon { font-size: 16px; }
 
+  .nav-group { margin-bottom: 2px; }
+
+  .nav-group-toggle {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+  }
+
+  .nav-group-toggle .nav-chevron {
+    margin-left: auto;
+    width: 14px;
+    height: 14px;
+    display: inline-grid;
+    place-items: center;
+    opacity: 0.55;
+    transition: transform 0.15s ease;
+  }
+
+  .nav-group-toggle .nav-chevron svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .nav-group.open .nav-group-toggle .nav-chevron {
+    transform: rotate(90deg);
+    opacity: 0.9;
+  }
+
+  .nav-group.has-active > .nav-group-toggle {
+    color: white;
+  }
+
+  .nav-sub {
+    display: none;
+    padding: 2px 0 4px 12px;
+  }
+
+  .nav-group.open .nav-sub { display: block; }
+
+  .nav-sub .nav-item {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    margin-bottom: 1px;
+  }
+
   .sidebar-footer {
     padding: 16px 14px 20px;
     border-top: 1px solid rgba(255,255,255,0.08);
@@ -593,6 +645,332 @@
   .badge-open   { background: #d4edda; color: var(--green-dark); }
   .badge-ended  { background: #eef1ee; color: var(--muted); }
 
+  /* ── Schedules ── */
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+  .sch-header-note { font-size: 12px; color: var(--muted); }
+  .sch-time { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  .sch-time-muted { color: var(--muted); font-weight: 500; }
+  .sch-route-main { font-weight: 600; color: var(--green-dark); }
+  .sch-route-sub { margin-top: 3px; font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .sch-route-warn { color: #b45309; }
+  .sch-chip {
+    display: inline-block;
+    font-size: 11px;
+    line-height: 1.35;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text);
+  }
+  .sch-table-wrap { overflow-x: auto; }
+  .sch-table { min-width: 860px; }
+  .sch-table td { vertical-align: top; }
+  .sch-table th:nth-child(3), .sch-table td:nth-child(3) { min-width: 260px; }
+  .sch-table td:nth-child(4) { min-width: 140px; max-width: 170px; }
+  .sch-table td:nth-child(5) { max-width: 120px; }
+  .sch-table td:last-child { white-space: nowrap; }
+
+  .modal-schedule {
+    width: min(900px, calc(100vw - 36px));
+    max-width: 900px;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .sch-editor-body {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(100vh - 210px);
+    padding: 20px 24px 8px;
+  }
+  .modal-schedule > .modal-footer {
+    margin: 0;
+    padding: 14px 24px;
+    background: #fff;
+  }
+
+  .sch-shift-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: -4px 0 14px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    background: var(--surface2);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .sch-shift-row select { width: auto; min-height: 32px; padding: 5px 30px 5px 10px; font-size: 12px; }
+
+  .sch-stop-head,
+  .sch-stop-row {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) 128px 128px 104px;
+    gap: 8px;
+    align-items: center;
+  }
+  .sch-stop-head {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 0 6px;
+  }
+  .sch-stop-row { margin-bottom: 6px; }
+  .sch-stop-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    text-align: center;
+  }
+  .sch-stop-actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .sch-icon-btn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .sch-icon-btn:hover:not(:disabled) { border-color: var(--green); color: var(--green-dark); }
+  .sch-icon-btn:disabled { opacity: 0.35; cursor: default; }
+  .sch-icon-btn.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+  .sch-stops-empty { font-size: 12px; color: var(--muted); padding: 6px 0; }
+
+  .sch-notice {
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 9px;
+    margin-bottom: 12px;
+    background: #fff7e6;
+    color: #8a4b05;
+    border: 1px solid #f5d9a8;
+  }
+  .sch-notice code { font-size: 11px; word-break: break-all; }
+  .sch-issues { margin: 4px 0 14px; padding: 12px 14px; border-radius: 10px; font-size: 12px; line-height: 1.5; }
+  .sch-issues ul { margin: 4px 0 0; padding-left: 18px; }
+  .sch-issues-err { background: var(--danger-bg); color: var(--danger); }
+  .sch-issues-warn { background: #fff7e6; color: #8a4b05; border: 1px solid #f5d9a8; }
+
+  .sch-change {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid #f0f5f2;
+    font-size: 13px;
+  }
+  .sch-change:last-child { border-bottom: none; }
+  .sch-change-main { flex: 1; min-width: 0; }
+  .sch-change-meta { margin-top: 2px; font-size: 11px; color: var(--muted); }
+  .badge-sch-create  { background: #d4edda; color: var(--green-dark); }
+  .badge-sch-update  { background: #e3f0ff; color: #1a56aa; }
+  .badge-sch-delete  { background: var(--danger-bg); color: var(--danger); }
+  .badge-sch-restore { background: #fff3e0; color: #b45309; }
+
+  /* ── Schedules · AI Upload ── */
+  [hidden] { display: none !important; }
+  .badge-sch-ai { background: #ede7fb; color: #5b3fa0; }
+  .ai-upload-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(260px, 1.1fr);
+    gap: 20px;
+    padding: 20px;
+  }
+  .ai-step-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 14px;
+    font-weight: 750;
+    color: var(--green-dark);
+    margin-bottom: 16px;
+  }
+  .ai-run-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ai-status { font-size: 12px; color: var(--muted); }
+  .ai-status.busy::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 7px;
+    vertical-align: -2px;
+    border: 2px solid var(--green-pale);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: aiSpin 0.8s linear infinite;
+  }
+  @keyframes aiSpin { to { transform: rotate(360deg); } }
+  .ai-drop {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    background: var(--surface2);
+    cursor: pointer;
+    overflow: hidden;
+    text-transform: none;
+    letter-spacing: 0;
+    margin: 0;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .ai-drop:hover, .ai-drop.dragging { border-color: var(--green); background: #f2f9f4; }
+  .ai-drop-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 24px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .ai-drop-empty strong { font-size: 14px; color: var(--green-dark); }
+  .ai-drop-empty .ui-icon { width: 30px; height: 30px; color: var(--green); }
+  .ai-drop img { width: 100%; height: 100%; max-height: 300px; object-fit: contain; background: #fff; }
+  .ai-drop-name {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    max-width: calc(100% - 16px);
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(0, 50, 27, 0.75);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ai-review-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .ai-photo-card { position: sticky; top: 16px; }
+  .ai-photo-wrap { max-height: calc(100vh - 120px); overflow: auto; background: #f4f6f4; }
+  .ai-photo-wrap img { display: block; width: 100%; }
+  .ai-trips-card { min-width: 0; }
+  .sch-table.ai-table { min-width: 880px; }
+  .sch-table.ai-table th, .sch-table.ai-table td { min-width: 0; max-width: none; }
+  .sch-table.ai-table .col-check { min-width: 150px; max-width: 210px; }
+  .sch-table.ai-table .col-route { min-width: 220px; }
+  .sch-table.ai-table .col-days { min-width: 110px; max-width: 150px; }
+  .ai-table tr.excluded td { opacity: 0.45; }
+  .ai-table input[type="checkbox"], #ai-remove-missing {
+    appearance: auto;
+    accent-color: var(--green);
+    width: 16px;
+    height: 16px;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .ai-check { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 120px; }
+  .ai-pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .ai-pill-ok   { background: #e8f5ec; color: var(--green-dark); }
+  .ai-pill-warn { background: #fff3e0; color: #b45309; }
+  .ai-pill-err  { background: var(--danger-bg); color: var(--danger); }
+  .ai-pill-new  { background: #e3f0ff; color: #1a56aa; }
+  .ai-pill-chg  { background: #ede7fb; color: #5b3fa0; }
+  .ai-pill-same { background: #eef1ee; color: var(--muted); }
+  .ai-check-detail { font-size: 11px; color: var(--muted); line-height: 1.35; max-width: 200px; }
+  .ai-review-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .ai-footer-note { flex: 1; font-size: 12px; color: var(--muted); min-width: 120px; }
+
+  .ai-apply-modal { max-width: 640px; }
+  #ai-remove-row { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .ai-apply-counts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .ai-apply-count {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface2);
+  }
+  .ai-apply-count .n { font-size: 22px; font-weight: 800; color: var(--green-dark); line-height: 1.1; }
+  .ai-apply-count .l { font-size: 10px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .ai-apply-count.remove .n { color: var(--danger); }
+  .ai-apply-list { margin-bottom: 10px; }
+  .ai-apply-list summary { cursor: pointer; font-size: 12px; font-weight: 650; color: var(--green-dark); padding: 4px 0; }
+  .ai-apply-list ul { margin: 4px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--text); max-height: 180px; overflow: auto; }
+  .ai-apply-list li span { color: var(--muted); }
+  .ai-apply-list li .ai-active-driver { color: #b45309; font-weight: 650; }
+
+  .ai-textarea {
+    width: 100%;
+    min-height: 340px;
+    resize: vertical;
+    background: #fbfcfb;
+    border: 1px solid #cfdcd2;
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 12px 14px;
+    outline: none;
+  }
+  .ai-textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0, 75, 43, 0.12); background: #fff; }
+
+  .ai-done-body { display: flex; gap: 14px; align-items: flex-start; padding: 22px 24px 8px; }
+  .ai-done-body .modal-icon { margin: 0; }
+  .ai-done-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding: 14px 24px 20px; }
+
+  @media (max-width: 1100px) {
+    .ai-review-grid { grid-template-columns: 1fr; }
+    .ai-photo-card { position: static; }
+    .ai-photo-wrap { max-height: 420px; }
+  }
+  @media (max-width: 760px) {
+    .ai-upload-grid { grid-template-columns: 1fr; }
+    .ai-apply-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 700px) {
+    .sch-stop-head { display: none; }
+    .sch-stop-row { grid-template-columns: 22px 1fr 1fr; }
+    .sch-stop-row .sch-stop-loc { grid-column: 2 / -1; }
+    .sch-stop-row .sch-stop-actions { grid-column: 1 / -1; }
+  }
+
   /* ── Ads ── */
   .ads-tabs {
     display: flex;
@@ -887,6 +1265,20 @@
       <div class="nav-item" data-section="ads" onclick="showSection('ads')">
         <span class="nav-icon"></span> Ads
       </div>
+      <div class="nav-group" id="nav-schedules">
+        <button type="button" class="nav-item nav-group-toggle" onclick="toggleNavGroup('nav-schedules')" aria-expanded="false" aria-controls="nav-schedules-sub">
+          <span class="nav-icon" data-icon="schedules"></span> Schedules
+          <span class="nav-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="nav-sub" id="nav-schedules-sub" role="group" aria-label="Schedule options">
+          <div class="nav-item" data-section="schedules-manual" onclick="showSection('schedules-manual')">
+            <span class="nav-icon" data-icon="manual"></span> Manual
+          </div>
+          <div class="nav-item" data-section="schedules-ai" onclick="showSection('schedules-ai')">
+            <span class="nav-icon" data-icon="ai-upload"></span> AI Upload
+          </div>
+        </div>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -1059,6 +1451,173 @@
     </div>
     </section>
 
+    <section id="section-schedules-manual" class="page-section">
+      <div class="page-header">
+        <div class="page-title">Schedules · Manual <span id="sch-count"></span></div>
+        <button class="btn btn-primary" id="sch-add-btn" onclick="openScheduleCreate()" disabled>+ Add trip</button>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="padding:18px 20px;">
+          <div class="filter-row" style="margin-bottom:0;">
+            <div class="filter-field" style="min-width:240px;">
+              <label for="sch-company">Company</label>
+              <select id="sch-company" onchange="onScheduleCompanyChange()">
+                <option value="">— select company —</option>
+              </select>
+            </div>
+            <div class="filter-field" style="min-width:200px;">
+              <label for="sch-origin-filter">Leaving from</label>
+              <select id="sch-origin-filter" onchange="renderScheduleTable()">
+                <option value="">Any origin</option>
+              </select>
+            </div>
+            <div class="filter-field" style="min-width:240px;flex:1;">
+              <label for="sch-search">Search</label>
+              <input id="sch-search" type="text" placeholder="Route, stop, time, days, notes…" oninput="renderScheduleTable()">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-title">Trips</div>
+          <div class="sch-header-note" id="sch-visible-note"></div>
+        </div>
+        <div class="sch-table-wrap">
+          <table class="sch-table">
+            <thead>
+              <tr>
+                <th>Departs</th>
+                <th>Arrives</th>
+                <th>Route</th>
+                <th>Days</th>
+                <th>Service</th>
+                <th>BID</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="sch-table-body">
+              <tr><td colspan="7"><div class="empty"><div class="empty-icon"></div>Pick a company to see its trips.</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent changes</div>
+          <div class="sch-header-note">Undo puts a trip back exactly how it was before that change.</div>
+        </div>
+        <div id="sch-changes-body">
+          <div class="empty"><div class="empty-icon"></div>Changes you make here will show up for undo.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="section-schedules-ai" class="page-section">
+      <div class="page-header">
+        <div class="page-title">Schedules · AI Upload</div>
+        <button class="btn btn-ghost" onclick="openAiSettings()">AI settings</button>
+      </div>
+
+      <div id="ai-key-missing" class="sch-notice" hidden>
+        <strong>Gemini API key not set.</strong> Add a secret named <code>GEMINI_API_KEY</code> in Cloudflare Pages → Settings → Variables and secrets, then redeploy. Get a free key at aistudio.google.com/apikey.
+      </div>
+
+      <div class="card" id="ai-upload-card" style="margin-bottom:16px;">
+        <div class="ai-upload-grid">
+          <div class="ai-upload-form">
+            <div class="ai-step-title"><span class="form-step">1</span> Choose a company and photo</div>
+            <div class="field">
+              <label for="ai-company">Company *</label>
+              <select id="ai-company" onchange="onAiCompanyChange()">
+                <option value="">— select company —</option>
+              </select>
+              <div class="field-help" id="ai-company-help"></div>
+            </div>
+            <div class="field">
+              <label for="ai-note">Extra instructions for this photo</label>
+              <input id="ai-note" type="text" placeholder="Optional — e.g. This is the Sunday schedule">
+            </div>
+            <div class="ai-run-row">
+              <button class="btn btn-primary" id="ai-run-btn" onclick="runAiExtract()" disabled>Read schedule</button>
+              <span class="ai-status" id="ai-status"></span>
+            </div>
+          </div>
+          <label class="ai-drop" id="ai-drop" for="ai-file">
+            <input id="ai-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" hidden>
+            <div class="ai-drop-empty" id="ai-drop-empty">
+              <span class="ui-icon" data-icon="image"></span>
+              <strong>Drop a schedule photo here</strong>
+              <span>or click to choose · JPEG, PNG, WebP, or HEIC</span>
+            </div>
+            <img id="ai-drop-preview" alt="Selected schedule photo" hidden>
+            <span class="ai-drop-name" id="ai-drop-name" hidden></span>
+          </label>
+        </div>
+      </div>
+
+      <div id="ai-review" hidden>
+        <div class="ai-review-grid">
+          <div class="card ai-photo-card">
+            <div class="card-header">
+              <div class="card-title">Photo</div>
+              <a class="sch-header-note" id="ai-photo-open" target="_blank" rel="noopener">Open full size</a>
+            </div>
+            <div class="ai-photo-wrap"><img id="ai-photo" alt="Uploaded schedule photo"></div>
+          </div>
+
+          <div class="card ai-trips-card">
+            <div class="card-header">
+              <div class="card-title"><span class="form-step" style="display:inline-grid;margin-right:6px;">2</span>Check the trips <span id="ai-trip-count"></span></div>
+              <div class="sch-header-note" id="ai-compare-note"></div>
+            </div>
+            <div id="ai-photo-notes" class="sch-notice" hidden style="margin:14px 18px 0;"></div>
+            <div class="sch-table-wrap">
+              <table class="sch-table ai-table">
+                <thead>
+                  <tr>
+                    <th style="width:34px;"><input type="checkbox" id="ai-check-all" aria-label="Include all trips" checked></th>
+                    <th class="col-check">Check</th>
+                    <th>Departs</th>
+                    <th>Arrives</th>
+                    <th class="col-route">Route</th>
+                    <th class="col-days">Days</th>
+                    <th>Service</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="ai-table-body"></tbody>
+              </table>
+            </div>
+            <div class="ai-review-footer">
+              <button class="btn btn-ghost" onclick="addAiTrip()">+ Add missing trip</button>
+              <span class="ai-footer-note" id="ai-footer-note"></span>
+              <button class="btn btn-ghost" onclick="discardAiReview()">Discard</button>
+              <button class="btn btn-primary" id="ai-review-btn" onclick="reviewAiChanges()">Review changes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="ai-done" class="card ai-done" hidden>
+        <div class="ai-done-body">
+          <div class="modal-icon modal-icon-green" data-icon="schedules"></div>
+          <div style="flex:1;min-width:0;">
+            <div class="modal-title" id="ai-done-title">Schedule updated</div>
+            <div class="modal-desc" id="ai-done-desc" style="margin-bottom:0;"></div>
+          </div>
+        </div>
+        <div class="ai-done-actions">
+          <button class="btn btn-ghost" id="ai-undo-btn" onclick="undoAiImport()">Undo this import</button>
+          <button class="btn btn-ghost" onclick="viewAiCompanyInManual()">View in Manual</button>
+          <button class="btn btn-primary" onclick="resetAiUpload()">Upload another photo</button>
+        </div>
+      </div>
+    </section>
+
     <section id="section-ads" class="page-section">
       <div class="page-header">
         <div class="page-title">Ads <span id="ads-count"></span></div>
@@ -1116,7 +1675,7 @@
   </div>
 </div>
 
-<div class="overlay" id="create-modal">
+<div class="overlay" id="create-modal" data-keep-open>
   <div class="modal">
     <div class="modal-icon modal-icon-green" id="userModalIcon"></div>
     <div class="modal-title">Add New User</div>
@@ -1151,7 +1710,7 @@
 </div>
 
 <!-- Edit Modal -->
-<div class="overlay" id="edit-modal">
+<div class="overlay" id="edit-modal" data-keep-open>
   <div class="modal">
     <div class="modal-icon modal-icon-green" id="editUserModalIcon"></div>
     <div class="modal-title">Edit User</div>
@@ -1162,8 +1721,8 @@
       <label>Role</label>
       <select id="e-type">
         <option value="">— select role —</option>
-        <option value="driver">Driver</option>
-        <option value="conductor">Conductor</option>
+        <option value="Driver">Driver</option>
+        <option value="Conductor">Conductor</option>
       </select>
     </div>
     <div class="field">
@@ -1200,7 +1759,7 @@
 </div>
 
 <!-- Vehicle: create -->
-<div class="overlay" id="vehicle-create-modal">
+<div class="overlay" id="vehicle-create-modal" data-keep-open>
   <div class="modal modal-wide">
     <div class="modal-icon modal-icon-green" id="vehicleModalIcon"></div>
     <div class="modal-title">Add vehicle</div>
@@ -1234,7 +1793,7 @@
 </div>
 
 <!-- Vehicle: edit -->
-<div class="overlay" id="vehicle-edit-modal">
+<div class="overlay" id="vehicle-edit-modal" data-keep-open>
   <div class="modal modal-wide">
     <div class="modal-icon modal-icon-green" id="editVehicleModalIcon"></div>
     <div class="modal-title">Edit vehicle</div>
@@ -1289,6 +1848,201 @@
   </div>
 </div>
 
+<!-- Schedule: create / edit -->
+<div class="overlay" id="schedule-editor-modal" data-keep-open>
+  <div class="modal modal-schedule">
+    <input type="hidden" id="se-bid">
+
+    <div class="ad-editor-header">
+      <div class="modal-icon modal-icon-green" data-icon="schedules"></div>
+      <div class="ad-editor-heading">
+        <div class="modal-title" id="se-title">New trip</div>
+        <div class="modal-desc" id="se-desc">Riders get changes the next time their app syncs.</div>
+      </div>
+      <button type="button" class="icon-close" onclick="closeModals()" aria-label="Close trip editor">
+        <span class="ui-icon" data-icon="close"></span>
+      </button>
+    </div>
+
+    <div class="sch-editor-body">
+      <div class="form-section">
+        <div class="form-section-header">
+          <span class="form-step">1</span>
+          <div>
+            <div class="form-section-title">Trip</div>
+            <div class="form-section-help">Times are saved as h:mm AM/PM. Route name defaults to “Origin to Destination”.</div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="se-company">Company *</label>
+            <input id="se-company" type="text" list="sch-company-list" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="se-phone">Phone</label>
+            <input id="se-phone" type="text" placeholder="+501-000-0000">
+          </div>
+          <div class="field">
+            <label for="se-origin">Origin *</label>
+            <input id="se-origin" type="text" list="sch-places-list" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="se-destination">Destination *</label>
+            <input id="se-destination" type="text" list="sch-places-list" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="se-departure">Departure *</label>
+            <input id="se-departure" type="time">
+          </div>
+          <div class="field">
+            <label for="se-arrival">Arrival</label>
+            <input id="se-arrival" type="time">
+          </div>
+          <div class="field span-2">
+            <label for="se-route">Route name</label>
+            <input id="se-route" type="text" placeholder="e.g. Belize City to Benque Viejo Town">
+          </div>
+          <div class="field">
+            <label for="se-days">Days of operation *</label>
+            <input id="se-days" type="text" list="sch-days-list" autocomplete="off" placeholder="Monday to Sunday">
+          </div>
+          <div class="field">
+            <label for="se-service">Service type</label>
+            <input id="se-service" type="text" list="sch-service-list" autocomplete="off" placeholder="Regular">
+          </div>
+          <div class="field span-2">
+            <label for="se-notes">Notes</label>
+            <input id="se-notes" type="text" placeholder="Optional — e.g. No 5:15AM Express on Sundays">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-header">
+          <span class="form-step">2</span>
+          <div style="flex:1;">
+            <div class="form-section-title">Stops</div>
+            <div class="form-section-help">In travel order. First stop is the origin, last stop is the destination (leave its depart time empty).</div>
+          </div>
+          <button type="button" class="btn btn-ghost" style="padding:6px 10px;font-size:11px;" onclick="fillScheduleEndStops()">Fill first &amp; last from trip</button>
+        </div>
+        <div class="sch-shift-row">
+          <span>Shift every time on this trip by</span>
+          <select id="se-shift" aria-label="Minutes to shift">
+            <option value="-120">−2 hours</option>
+            <option value="-60">−1 hour</option>
+            <option value="-30">−30 min</option>
+            <option value="-15">−15 min</option>
+            <option value="15">+15 min</option>
+            <option value="30">+30 min</option>
+            <option value="60" selected>+1 hour</option>
+            <option value="120">+2 hours</option>
+          </select>
+          <button type="button" class="btn btn-ghost" style="padding:6px 10px;font-size:11px;" onclick="shiftScheduleTimes()">Shift</button>
+        </div>
+        <div id="se-stops-invalid" class="sch-notice" style="display:none;"></div>
+        <div class="sch-stop-head">
+          <span>#</span><span>Location</span><span>Arrive</span><span>Depart</span><span></span>
+        </div>
+        <div id="se-stops"></div>
+        <button type="button" class="btn btn-ghost" style="margin-top:8px;" onclick="addScheduleStop()">+ Add stop</button>
+      </div>
+
+      <div id="se-issues"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModals()">Cancel</button>
+      <button class="btn btn-primary" id="se-save-btn" onclick="saveSchedule()">Save trip</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule: delete -->
+<div class="overlay" id="schedule-delete-modal">
+  <div class="modal">
+    <div class="modal-icon modal-icon-red" data-icon="trash"></div>
+    <div class="modal-title">Delete trip</div>
+    <div class="modal-desc">Removes this trip from the schedule. Riders stop seeing it after their next sync. You can undo it from Recent changes.</div>
+    <input type="hidden" id="sd-bid">
+    <div class="delete-target">
+      <div class="delete-target-name" id="sd-route"></div>
+      <div class="delete-target-email" id="sd-detail"></div>
+    </div>
+    <div class="sch-notice" id="sd-active-warning" hidden style="margin-top:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModals()">Cancel</button>
+      <button class="btn btn-danger-sm" style="padding:9px 18px; font-size:13px;" onclick="confirmScheduleDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Upload: confirm replace -->
+<div class="overlay" id="ai-apply-modal">
+  <div class="modal modal-wide ai-apply-modal">
+    <div class="modal-icon modal-icon-green" data-icon="schedules"></div>
+    <div class="modal-title" id="ai-apply-title">Replace schedule</div>
+    <div class="modal-desc" id="ai-apply-desc">Here’s exactly what will change. Nothing is saved until you confirm.</div>
+    <div class="ai-apply-counts" id="ai-apply-counts"></div>
+    <div class="sch-notice" id="ai-apply-warning" hidden style="margin-bottom:12px;"></div>
+    <div id="ai-apply-lists"></div>
+    <label class="switch-row" style="margin-top:12px;cursor:pointer;" id="ai-remove-row">
+      <span class="switch-copy">
+        <strong>Remove trips that aren’t in the photo</strong>
+        <small>Matches your usual “delete all, then re-add” workflow. Undo is available after.</small>
+      </span>
+      <input type="checkbox" id="ai-remove-missing" checked onchange="renderAiApplyCounts()">
+    </label>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModals()">Back to review</button>
+      <button class="btn btn-primary" id="ai-apply-btn" onclick="applyAiImport()">Apply changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Upload: settings -->
+<div class="overlay" id="ai-settings-modal" data-keep-open>
+  <div class="modal modal-schedule">
+    <div class="ad-editor-header">
+      <div class="modal-icon modal-icon-green" data-icon="ai-upload"></div>
+      <div class="ad-editor-heading">
+        <div class="modal-title">AI settings</div>
+        <div class="modal-desc">Instructions Gemini follows for every schedule photo. Saved in D1 — no redeploy needed.</div>
+      </div>
+      <button type="button" class="icon-close" onclick="closeModals()" aria-label="Close AI settings">
+        <span class="ui-icon" data-icon="close"></span>
+      </button>
+    </div>
+    <div class="sch-editor-body">
+      <div id="ai-settings-key" class="sch-notice" hidden></div>
+      <div class="field">
+        <label for="ai-model">Gemini model</label>
+        <input id="ai-model" type="text" list="ai-model-list" autocomplete="off">
+        <datalist id="ai-model-list">
+          <option value="gemini-2.5-pro"></option>
+          <option value="gemini-2.5-flash"></option>
+        </datalist>
+        <div class="field-help">Pro reads dense timetables best. Switch to a Flash model if you hit free-tier limits. Leave empty for the default.</div>
+      </div>
+      <div class="field">
+        <label for="ai-prompt">System instructions <span id="ai-prompt-state" style="text-transform:none;letter-spacing:0;font-weight:500;"></span></label>
+        <textarea id="ai-prompt" class="ai-textarea" spellcheck="false"></textarea>
+        <div class="field-help">Company name, known place spellings, days and service types from your data are added automatically for each photo.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="resetAiPrompt()" style="margin-right:auto;">Reset to default</button>
+      <button class="btn btn-ghost" onclick="closeModals()">Cancel</button>
+      <button class="btn btn-primary" id="ai-settings-save" onclick="saveAiSettings()">Save settings</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="sch-company-list"></datalist>
+<datalist id="sch-places-list"></datalist>
+<datalist id="sch-days-list"></datalist>
+<datalist id="sch-service-list"></datalist>
+
 <!-- Ad performance report -->
 <div class="overlay" id="ad-report-modal">
   <div class="modal">
@@ -1304,7 +2058,7 @@
 </div>
 
 <!-- Ad create / edit -->
-<div class="overlay" id="ad-editor-modal">
+<div class="overlay" id="ad-editor-modal" data-keep-open>
   <div class="modal modal-ads">
     <input type="hidden" id="ad-editor-id">
     <input type="hidden" id="ad-editor-placement" value="strip">
@@ -1486,8 +2240,8 @@
 
 <script>
   // ── CONFIG ────────────────────────────────────────────────
-  // Pages: SUPABASE_URL, SUPABASE_SERVICE_KEY, D1 DB, R2 binding BUS_IMAGES,
-  // optional IMAGES_PUBLIC_BASE (default https://images.belizebusschedules.com)
+  // Pages bindings: D1 as DB, R2 as BUS_IMAGES. Variables: DRIVER_API_BASE_URL, ADMIN_API_SECRET,
+  // GEMINI_API_KEY, optional IMAGES_PUBLIC_BASE (default https://images.belizebusschedules.com)
   const API_BASE = '/api/admin'
   function apiFetch(url, opts = {}) {
     return fetch(url, { credentials: 'include', ...opts })
@@ -1662,6 +2416,17 @@
         sf.innerHTML = filter
         if (curS && [...sf.options].some(o => o.value === curS)) sf.value = curS
       }
+      ;['sch-company', 'ai-company'].forEach(id => {
+        const el = document.getElementById(id)
+        if (!el) return
+        const cur = el.value
+        el.innerHTML = pick
+        if (cur && [...el.options].some(o => o.value === cur)) el.value = cur
+      })
+      const schList = document.getElementById('sch-company-list')
+      if (schList) {
+        schList.innerHTML = companies.map(c => `<option value="${escAttr(c)}"></option>`).join('')
+      }
     } catch (e) {
       console.error('Failed to load companies', e)
     }
@@ -1723,12 +2488,30 @@
     return `<span class="badge badge-${cls}">${escHtml(type)}</span>`
   }
 
+  function toggleNavGroup(id) {
+    const group = document.getElementById(id)
+    if (!group) return
+    const open = !group.classList.contains('open')
+    group.classList.toggle('open', open)
+    const toggle = group.querySelector('.nav-group-toggle')
+    if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+  }
+
   function showSection(name) {
     document.querySelectorAll('.page-section').forEach(s => {
       s.classList.toggle('active', s.id === 'section-' + name)
     })
     document.querySelectorAll('nav .nav-item').forEach(n => {
       n.classList.toggle('active', n.dataset.section === name)
+    })
+    document.querySelectorAll('nav .nav-group').forEach(group => {
+      const childActive = !!group.querySelector('.nav-item.active[data-section]')
+      group.classList.toggle('has-active', childActive)
+      if (childActive) {
+        group.classList.add('open')
+        const toggle = group.querySelector('.nav-group-toggle')
+        if (toggle) toggle.setAttribute('aria-expanded', 'true')
+      }
     })
     if (name === 'vehicles') loadVehicles()
     if (name === 'sessions') {
@@ -1739,6 +2522,12 @@
     }
     if (name === 'ads') {
       if (typeof loadAds === 'function') loadAds()
+    }
+    if (name === 'schedules-manual') {
+      if (typeof loadScheduleManual === 'function') loadScheduleManual()
+    }
+    if (name === 'schedules-ai') {
+      if (typeof loadAiUpload === 'function') loadAiUpload()
     }
   }
 
@@ -1778,7 +2567,12 @@
       )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load schedules')
-      const rows = data.schedules || []
+      const minutes = t => window.ScheduleRules?.timeToMinutes(window.ScheduleRules.normalizeTime(t).value) ?? 9999
+      const rows = (data.schedules || []).slice().sort((a, b) =>
+        String(a.origin || '').localeCompare(String(b.origin || '')) ||
+        String(a.destination || '').localeCompare(String(b.destination || '')) ||
+        minutes(a.departure_time) - minutes(b.departure_time)
+      )
       routeSel.innerHTML =
         '<option value="">Any route</option>' +
         rows
@@ -1786,7 +2580,7 @@
             const bid = s.BID != null ? s.BID : s.bid
             const o = s.origin || ''
             const d = s.destination || ''
-            const t = s.departure_time ? String(s.departure_time).slice(0, 5) : ''
+            const t = s.departure_time ? String(s.departure_time) : ''
             const tail = t ? ` · ${escHtml(t)}` : ''
             const label = `${escHtml(o)} → ${escHtml(d)}${tail} (BID ${escHtml(String(bid))})`
             return `<option value="${escAttr(String(bid))}">${label}</option>`
@@ -2034,13 +2828,17 @@
       if (!res.ok) throw new Error(data.error || 'Failed')
       const id = data.id
       const file = document.getElementById('vc-photo')?.files?.[0]
+      closeModals()
       if (id && file) {
-        await uploadVehiclePhoto(id, file)
-        toast('Vehicle created and photo uploaded', 'ok')
+        try {
+          await uploadVehiclePhoto(id, file)
+          toast('Vehicle created and photo uploaded', 'ok')
+        } catch (photoErr) {
+          toast(`Vehicle created, but the photo failed (${photoErr.message}). Use Edit to try again.`, 'err')
+        }
       } else {
         toast('Vehicle created', 'ok')
       }
-      closeModals()
       loadVehicles()
     } catch (e) {
       toast(e.message, 'err')
@@ -2051,11 +2849,11 @@
     const v = vehicles.find(x => x.id === id)
     if (!v) return
     document.getElementById('ve-id').value = v.id
-    document.getElementById('ve-company').value = v.company_name || ''
+    selectValue(document.getElementById('ve-company'), v.company_name || '', 'no schedules')
     document.getElementById('ve-plate').value = v.plate || ''
     document.getElementById('ve-vin').value = v.vin || ''
-    document.getElementById('ve-status').value =
-      String(v.status || '').toLowerCase() === 'inactive' ? 'inactive' : 'active'
+    const vStatus = String(v.status || '').toLowerCase()
+    selectValue(document.getElementById('ve-status'), vStatus === 'inactive' || vStatus === 'active' ? vStatus : v.status || 'active')
     document.getElementById('ve-notes').value = v.notes || ''
     setVehicleFeatures('edit', v.features || '{}')
     const ph = document.getElementById('ve-photo')
@@ -2097,9 +2895,17 @@
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
       const file = document.getElementById('ve-photo')?.files?.[0]
-      if (file) await uploadVehiclePhoto(id, file)
       closeModals()
-      toast(file ? 'Saved and photo updated' : 'Saved', 'ok')
+      if (file) {
+        try {
+          await uploadVehiclePhoto(id, file)
+          toast('Saved and photo updated', 'ok')
+        } catch (photoErr) {
+          toast(`Saved, but the photo failed (${photoErr.message}). Try uploading it again.`, 'err')
+        }
+      } else {
+        toast('Saved', 'ok')
+      }
       loadVehicles()
     } catch (e) {
       toast(e.message, 'err')
@@ -2159,14 +2965,27 @@
     } catch(e) { toast(e.message, 'err') }
   }
 
+  /** Selects `value`, adding it as an option first so saving never blanks an unlisted value. */
+  function selectValue(sel, value, note) {
+    sel.querySelectorAll('option[data-extra]').forEach(o => o.remove())
+    if (value && ![...sel.options].some(o => o.value === value)) {
+      const opt = document.createElement('option')
+      opt.value = value
+      opt.textContent = note ? `${value} (${note})` : value
+      opt.dataset.extra = '1'
+      sel.appendChild(opt)
+    }
+    sel.value = value || ''
+  }
+
   function openEdit(id) {
     const u = users.find(u => u.id === id)
     document.getElementById('e-id').value = u.id
     document.getElementById('e-name').value = u.display_name || ''
     const t = String(u.user_type || '').toLowerCase()
-    document.getElementById('e-type').value =
-      t === 'driver' ? 'driver' : t === 'conductor' ? 'conductor' : ''
-    document.getElementById('e-company').value = u.bus_company || ''
+    const role = t === 'driver' ? 'Driver' : t === 'conductor' ? 'Conductor' : u.user_type
+    selectValue(document.getElementById('e-type'), role || '')
+    selectValue(document.getElementById('e-company'), u.bus_company || '', 'no schedules')
     document.getElementById('edit-modal').classList.add('open')
   }
 
@@ -2220,7 +3039,8 @@
     window.location.href = `${window.location.origin}/cdn-cgi/access/logout`
   }
 
-  document.querySelectorAll('.overlay').forEach(el =>
+  // Editors (data-keep-open) only close via their buttons, so a stray click can't discard work.
+  document.querySelectorAll('.overlay:not([data-keep-open])').forEach(el =>
     el.addEventListener('click', e => { if (e.target === el) closeModals() })
   )
 
@@ -2238,5 +3058,7 @@
 </script>
 <script src="ui-icons.js"></script>
 <script src="ads-ui.js"></script>
+<script src="schedules-ui.js"></script>
+<script src="schedules-ai-ui.js"></script>
 </body>
 </html>

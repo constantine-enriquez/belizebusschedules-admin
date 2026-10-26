@@ -150,6 +150,31 @@ export function parseCtas(raw) {
   return null
 }
 
+const PHONE_RE = /^\+?[\d\s\-().]{7,20}$/
+
+/**
+ * Fixes common shorthand (bare phone numbers, domains without https://) and rejects
+ * links that don't fit the CTA type — passenger apps open these hrefs directly.
+ * @returns {{ href: string } | { error: string }}
+ */
+export function normalizeCtaHref(type, href) {
+  const h = String(href || '').trim()
+  if (type === 'call') {
+    if (/^tel:\+?[\d\-().]{3,20}$/i.test(h.replace(/\s/g, ''))) return { href: h.replace(/\s/g, '') }
+    if (PHONE_RE.test(h)) return { href: `tel:${h.replace(/[^\d+]/g, '')}` }
+    return { error: 'Call actions need a phone number, e.g. tel:+5016159303' }
+  }
+  if (type === 'whatsapp') {
+    if (/^https:\/\/(wa\.me|api\.whatsapp\.com)\//i.test(h)) return { href: h }
+    if (PHONE_RE.test(h)) return { href: `https://wa.me/${h.replace(/\D/g, '')}` }
+    return { error: 'WhatsApp actions need a wa.me link or phone number, e.g. https://wa.me/5016159303' }
+  }
+  if (/^https?:\/\/[^\s]+\.[^\s]+/i.test(h)) return { href: h }
+  if (type === 'custom' && /^mailto:[^\s@]+@[^\s@]+$/i.test(h)) return { href: h }
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/[^\s]*)?$/i.test(h)) return { href: `https://${h}` }
+  return { error: 'Links must be a web address starting with https://' }
+}
+
 export function normalizeCtas(ctas, placement) {
   if (!Array.isArray(ctas)) {
     return { error: 'ctas must be an array' }
@@ -185,8 +210,10 @@ export function normalizeCtas(ctas, placement) {
         error: `CTA label max ${FIELD_LIMITS.cta_label} characters`,
       }
     }
+    const link = normalizeCtaHref(type, href)
+    if (link.error) return { error: `“${label}”: ${link.error}` }
     if (style === 'primary') primaryCount += 1
-    out.push({ type, label: clip(label, FIELD_LIMITS.cta_label), href, style })
+    out.push({ type, label: clip(label, FIELD_LIMITS.cta_label), href: link.href, style })
   }
   if (placement === 'card' && primaryCount > 1) {
     return { error: 'Card ads can have at most one primary CTA' }

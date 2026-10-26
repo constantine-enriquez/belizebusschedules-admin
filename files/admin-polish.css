@@ -48,6 +48,51 @@ nav { padding: 18px 10px; flex: 1; }
   background: rgba(255, 255, 255, 0.11);
   box-shadow: inset 3px 0 0 #73c39c;
 }
+.nav-group-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.nav-group.has-active > .nav-group-toggle {
+  color: #fff;
+}
+.nav-group-toggle .nav-chevron {
+  margin-left: auto;
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  opacity: 0.55;
+  transition: transform 0.15s ease;
+  flex: 0 0 14px;
+}
+.nav-group-toggle .nav-chevron svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nav-group.open .nav-group-toggle .nav-chevron {
+  transform: rotate(90deg);
+  opacity: 0.9;
+}
+.nav-sub {
+  display: none;
+  padding: 2px 0 4px 10px;
+}
+.nav-group.open .nav-sub { display: block; }
+.nav-sub .nav-item {
+  min-height: 36px;
+  padding: 8px 11px;
+  font-size: 12.5px;
+}
 .nav-icon,
 .ui-icon {
   width: 18px;
@@ -385,6 +430,9 @@ label { color: #557061; }
   .brand-name, .brand-sub, .nav-label, .logout-btn span:last-child { display: none; }
   .nav-item { justify-content: center; font-size: 0; }
   .nav-icon { width: 20px; height: 20px; flex-basis: 20px; }
+  .nav-group-toggle .nav-chevron { display: none; }
+  .nav-sub { padding: 2px 0 4px; }
+  .nav-group.open .nav-sub { display: grid; gap: 1px; }
   .sidebar-footer { padding: 12px; }
   .logout-btn { justify-content: center; padding: 10px; }
   .main { padding: 24px 16px; min-width: 0; }

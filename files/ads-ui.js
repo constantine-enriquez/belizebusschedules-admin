@@ -297,7 +297,7 @@
     document.getElementById('ad-editor-id').value = ad?.id || ''
     document.getElementById('ad-editor-placement').value = placement
 
-    await ensureOriginsLoaded()
+    await loadOrigins()
     fillOriginSelect(ad?.origin || '')
     await fillDestinationSelect(ad?.origin || '', ad?.destination || '')
 
@@ -338,8 +338,8 @@
     document.getElementById('ad-editor-modal').classList.add('open')
   }
 
-  async function ensureOriginsLoaded() {
-    if (locationOrigins.length) return
+  /** Refetched on every editor open so routes added under Schedules show up without a reload. */
+  async function loadOrigins() {
     try {
       const res = await apiFetch(`${API_BASE}/locations`)
       const data = await res.json()
